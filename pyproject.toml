@@ -12,6 +12,7 @@ dependencies = [
   "langchain",
   "zep-python",
   "pyyaml",
+  "pydantic",
 ]
 
 [project.optional-dependencies]
@@ -28,3 +29,24 @@ dev = [
   "pytest-asyncio",
   "pytest-cov",
 ]
+
+# [build-system]
+# requires = ["setuptools>=61.0", "wheel"]
+# build-backend = "setuptools.build_meta"
+# 
+# [tool.setuptools.packages.find]
+# where = ["src"]
+# 
+# [tool.setuptools.package-dir]
+# "" = "src"
+
+[tool.pyright]
+venvPath = ".devenv/state"
+venv = "venv"
+
+[tool.ruff]
+indent-width = 2
+
+[tool.ruff.format]
+indent-style = "space"
+
