@@ -1,3 +1,7 @@
+__pycache__
+
+.ruff_cache
+
 CLAUDE.md
 .github/
 
@@ -13,6 +17,8 @@ devenv.local.nix
 
 # pre-commit
 .pre-commit-config.yaml
+
+.git
 
 # Devenv
 .devenv*

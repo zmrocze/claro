@@ -10,9 +10,12 @@ dependencies = [
   "pywebview",
   "langgraph",
   "langchain",
+  "langchain-openai",
   "zep-python",
   "pyyaml",
   "pydantic",
+  "keyring",
+  "python-dotenv",
 ]
 
 [project.optional-dependencies]

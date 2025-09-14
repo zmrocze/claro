@@ -24,24 +24,32 @@
           git --version
         '';
 
-        languages.python = {
-          enable = true;
-          uv = {
+        languages = {
+          python = {
             enable = true;
-            sync = {
+            uv = {
               enable = true;
-              allExtras = true;
-              allGroups = true;
+              sync = {
+                enable = true;
+                allExtras = true;
+                allGroups = true;
+              };
+            };
+            package = pkgs.python312;
+            # version = "3.12";
+          };
+          javascript = {
+            enable = true;
+            package = pkgs.nodejs_20;
+            npm = {
+              enable = true;
+              install.enable = true;
             };
           };
-          package = pkgs.python312;
-          # version = "3.12";
-        };
 
-        languages.javascript = {
-          enable = true;
-          package = pkgs.nodejs_20;
-          npm.enable = true;
+          nix = {
+            enable = true;
+          };
         };
 
         # https://devenv.sh/git-hooks/

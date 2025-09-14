@@ -16,6 +16,7 @@ Important files:
 2. **Never pip install**: Dependencies are managed via `pyproject.toml` or `nix/devenv.nix`
 3. **No shebangs in Python files**: python files NEVER start with "#!/usr/bin/env"
 4. **run tests**  from file <filename> with: `uv run pytest -k <filename>` and all tests with `uv run pytest`
+5. **search for docs** always start with an online search for documentation when using a library or a tool
 
 ## Style
 
