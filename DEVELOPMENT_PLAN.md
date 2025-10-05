@@ -1,4 +1,4 @@
-# Carol App Development Plan
+# Carlo App Development Plan
 
 ## Overview
 Building a personal AI assistant app for Android and Linux with local execution, featuring a chat interface and smart notifications. The app leverages LLM (Grok) with personal context from Zep memory to provide personalized interactions.
@@ -23,7 +23,7 @@ Building a personal AI assistant app for Android and Linux with local execution,
 
 ### 1.1 Project Structure
 ```
-carol/
+carlo/
 ├── frontend/               # React/TypeScript/Vite app
 │   ├── src/
 │   │   ├── components/    # React components
@@ -208,7 +208,7 @@ notifications:
 def main():
     os_interface = LinuxInterface()
     start_backend()
-    webview.create_window("Carol", "http://localhost:8000")
+    webview.create_window("Carlo", "http://localhost:8000")
     webview.start()
 
 # main_android.py  
@@ -231,8 +231,8 @@ def main():
 ### 7.2 Buildozer Configuration
 ```ini
 [app]
-title = Carol
-package.name = carol
+title = Carlo
+package.name = carlo
 source.dir = .
 requirements = python3,fastapi,uvicorn,pywebview,...
 android.permissions = INTERNET,POST_NOTIFICATIONS,SCHEDULE_EXACT_ALARM

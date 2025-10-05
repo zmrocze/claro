@@ -1,5 +1,5 @@
 [project]
-name = "carol"
+name = "carlo"
 version = "0.1.0"
 description = "Personal AI assistant app with chat interface and notifications"
 
@@ -16,6 +16,8 @@ dependencies = [
   "pydantic",
   "keyring",
   "python-dotenv",
+  "zep-cloud",
+  "ipywidgets",
 ]
 
 [project.optional-dependencies]

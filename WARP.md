@@ -10,13 +10,14 @@ Important files:
 │   ├── ux.md             # for basic app usage
 |-- nix/devenv.nix        # for nix dependencies
 |-- pyproject.toml        # for python deps
+|-- documentations/*      # documentations for libs we use
       
 ## Important Rules
 1. **Always run Python through uv**: i.e. `uv run script.py`
 2. **Never pip install**: Dependencies are managed via `pyproject.toml` or `nix/devenv.nix`
 3. **No shebangs in Python files**: python files NEVER start with "#!/usr/bin/env"
 4. **run tests**  from file <filename> with: `uv run pytest -k <filename>` and all tests with `uv run pytest`
-5. **search for docs** always start with an online search for documentation when using a library or a tool
+5. **search for docs** always start with an online search for documentation when using a library or a tool. find downloaded documentation pages in directory ./documentations. read these whenever usefull (there's zep - when adding zep, there's android scheduled notifications guide and linux scheduled notifications guide).
 
 ## Style
 

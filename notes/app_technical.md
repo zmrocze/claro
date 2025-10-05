@@ -42,7 +42,7 @@ Eventhough we use different systems on mobile and desktop, we have shared codeba
 persistent state and configuration files:
 The app to function needs to store some data locally persistent.
 The before mentioned time of last notification preparation. This is so that whenever app is opened, it can check if today already the notifications were prepared for tommorrow. The first time, when notifications were not set with timers, they are.
-And, the configuration for notifications content. This is a yaml file, that liss as many as user wants notification types.
+And, the configuration for notifications content. This is a yaml file, that lists as many as user wants notification types.
 Every notification type specifies: 
 what time of the day the notification appears (can be an hour, or random within a range), 
 notification frequency (can be less or more than 1 per day, probabilistic),

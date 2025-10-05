@@ -1,1 +1,1 @@
-"""API endpoints for Carol app"""
+"""API endpoints for Carlo app"""
