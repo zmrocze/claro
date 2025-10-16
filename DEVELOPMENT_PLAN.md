@@ -117,8 +117,7 @@ async def execute_action(action: ActionRequest) -> ActionResult:
 - Rate limiting: Implement request throttling
 
 **Questions:**
-- **Q4:** What should be the maximum context window size from Zep?
-- **Q5:** Should agent have access to file system or other system resources?
+- **Q4:** Should agent have access to file system or other system resources?
 
 ## Phase 3: Frontend Development
 

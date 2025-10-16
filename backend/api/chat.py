@@ -7,10 +7,10 @@ from datetime import datetime
 import logging
 import traceback
 
-from backend.memory import get_memory_client
+from backend.agent import get_agent
 from backend.sessions import get_session_manager
-from backend.llm import get_llm_manager
-# from zep_cloud.types import Message as ZepMessage
+from zep_cloud.client import AsyncZep
+from backend.config import get_zep_api_key, AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -52,29 +52,21 @@ class ConversationHistory(BaseModel):
 async def send_message(message: ChatMessage) -> ChatResponse:
   """
   Send a message to the AI assistant and get a response
+  Uses LangGraph agent with single thread per user (app_technical.md)
   """
   try:
-    # Get managers
-    memory = get_memory_client()
+    # Get agent (uses single thread per user)
+    agent = await get_agent()
     sessions = get_session_manager()
-    llm = get_llm_manager()
 
-    # Get or create session
+    # Get or create session for UI display only
     session_id = message.session_id or sessions.default_session_id  # type: ignore
     if not session_id:
       session_id = sessions.create_session()
+      # Link session to the single agent thread
+      sessions.set_thread_id(session_id, agent.thread_id)  # type: ignore
 
-    # Get thread ID from session or create new one
-    thread_id = sessions.get_thread_id(session_id)  # type: ignore
-    if not thread_id:
-      # Create new thread if needed
-      if not memory.current_thread_id:
-        thread_id = memory.create_thread()
-      else:
-        thread_id = memory.current_thread_id
-      sessions.set_thread_id(session_id, thread_id)  # type: ignore
-
-    # Add message to ephemeral session storage
+    # Add user message to ephemeral session storage (for UI)
     sessions.add_message(  # type: ignore
       content=message.content,
       role=message.role,
@@ -82,54 +74,19 @@ async def send_message(message: ChatMessage) -> ChatResponse:
       name=message.name,
     )
 
-    # Add message to Zep memory
+    # Invoke agent (uses single thread, handles memory internally)
     try:
-      memory.add_message(
-        content=message.content,
-        role=message.role,
-        name=message.name or "User",
-        thread_id=thread_id,
-      )
+      response_content = await agent.ainvoke(message=message.content)
+      context_used = True  # Agent always uses memory context
     except Exception as e:
-      logger.warning(f"Failed to add message to Zep: {e}")
-
-    # Get context from Zep
-    context = None
-    context_used = False
-    try:
-      context = memory.get_context(thread_id=thread_id, mode="basic")
-      context_used = context is not None
-    except Exception as e:
-      logger.warning(f"Failed to get context from Zep: {e}")
-
-    # Get recent chat history from session
-    recent_messages = sessions.get_messages(session_id, limit=10)  # type: ignore
-    chat_history = [
-      {"role": msg.role, "content": msg.content}
-      for msg in recent_messages[:-1]  # Exclude the current message
-    ]
-
-    # Get response from LLM
-    try:
-      response_content = await llm.get_response_async(
-        message=message.content, context=context, chat_history=chat_history
-      )
-    except Exception as e:
-      logger.error(f"LLM error: {e}")
+      logger.error(f"Agent error: {e}")
       response_content = "I apologize, but I'm having trouble processing your request right now. Please try again."
+      context_used = False
 
-    # Add assistant response to session
+    # Add assistant response to session (for UI)
     sessions.add_message(  # type: ignore
       content=response_content, role="assistant", session_id=session_id, name="Carlo"
     )
-
-    # Add assistant response to Zep
-    try:
-      memory.add_message(
-        content=response_content, role="assistant", name="Carlo", thread_id=thread_id
-      )
-    except Exception as e:
-      logger.warning(f"Failed to add assistant response to Zep: {e}")
 
     # Create response
     response = ChatResponse(
@@ -207,23 +164,23 @@ async def clear_conversation_history(session_id: str):
 async def create_session() -> Dict[str, str]:
   """
   Create a new chat session
+  Note: Uses single thread per user (app_technical.md)
   """
   try:
     sessions = get_session_manager()
-    memory = get_memory_client()
+    agent = await get_agent()
 
     # Create new session
     session_id = sessions.create_session()
 
-    # Create new Zep thread for this session
-    thread_id = memory.create_thread()
-    sessions.set_thread_id(session_id, thread_id)
+    # Link to the single agent thread (per user)
+    sessions.set_thread_id(session_id, agent.thread_id)
 
-    logger.info(f"Created new session {session_id} with thread {thread_id}")
+    logger.info(f"Created new session {session_id} with thread {agent.thread_id}")
 
     return {
       "session_id": session_id,
-      "thread_id": thread_id,
+      "thread_id": agent.thread_id,
       "message": "Session created successfully",
     }
 

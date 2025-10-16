@@ -22,4 +22,4 @@ Important files:
 ## Style
 
 1. write short, concise code. if possible avoid declaring every step of calculation as new variable, prefer bigger expression. Prefer functional, pure style. if code snippet repeats, refactor to use a function.
-2. never `import` anywhere other than at the top of a file
+2. always `import` only at the top of a python file

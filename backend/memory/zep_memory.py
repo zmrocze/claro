@@ -12,11 +12,12 @@ from zep_cloud.types import Message
 
 
 from backend.config import AppConfig, get_zep_api_key
+from backend.memory.base import MemoryProvider
 
 logger = logging.getLogger(__name__)
 
 
-class ZepMemory:
+class ZepMemory(MemoryProvider):
   """Manages conversation memory using Zep"""
 
   def __init__(self, api_key: Optional[str] = None, api_url: Optional[str] = None):
@@ -45,7 +46,12 @@ class ZepMemory:
 
     # Store active user and thread IDs
     self.current_user_id: Optional[str] = None
-    self.current_thread_id: Optional[str] = None
+    self._current_thread_id: Optional[str] = None
+
+  @property
+  def current_thread_id(self) -> Optional[str]:
+    """Get the current thread ID"""
+    return self._current_thread_id
 
   def create_or_get_user(
     self,
@@ -123,7 +129,7 @@ class ZepMemory:
 
       self.client.thread.create(thread_id=thread_id, user_id=user_id)
       logger.info(f"Created thread {thread_id} for user {user_id}")
-      self.current_thread_id = thread_id
+      self._current_thread_id = thread_id
       return thread_id
 
     except Exception as e:
@@ -325,7 +331,7 @@ class ZepMemory:
       logger.info(f"Deleted thread {thread_id}")
 
       if thread_id == self.current_thread_id:
-        self.current_thread_id = None
+        self._current_thread_id = None
 
     except Exception as e:
       logger.error(f"Failed to delete thread {thread_id}: {e}")
