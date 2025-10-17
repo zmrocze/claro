@@ -192,7 +192,7 @@ class CarloAgent:
         logger.warning(f"Failed to add user message to memory: {e}")
 
       # Get response from LLM
-      return self.chatbot_node(state, system_content_user)
+      return await self.chatbot_node(state, system_content_user)
 
     # Define the chatbot node
     async def chatbot_answer_tool(state: AgentState):
@@ -200,7 +200,7 @@ class CarloAgent:
       # not adding tool responses to zep memory
 
       # Get response from LLM
-      return self.chatbot_node(state, system_content_tool)
+      return await self.chatbot_node(state, system_content_tool)
 
     # Define conditional edge logic
     async def should_continue(state, config):

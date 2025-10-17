@@ -9,8 +9,6 @@ import traceback
 
 from backend.agent import get_agent
 from backend.sessions import get_session_manager
-from zep_cloud.client import AsyncZep
-from backend.config import get_zep_api_key, AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +34,8 @@ class ChatResponse(BaseModel):
   session_id: str
   requires_action: bool = False
   action_data: Optional[Dict[str, Any]] = None
-  context_used: bool = Field(
-    default=False, description="Whether context from memory was used"
+  success: bool = Field(
+    default=True, description="Whether the LLM responded successfully without errors"
   )
 
 
@@ -77,11 +75,11 @@ async def send_message(message: ChatMessage) -> ChatResponse:
     # Invoke agent (uses single thread, handles memory internally)
     try:
       response_content = await agent.ainvoke(message=message.content)
-      context_used = True  # Agent always uses memory context
+      success = True  # Agent responded successfully
     except Exception as e:
       logger.error(f"Agent error: {e}")
       response_content = "I apologize, but I'm having trouble processing your request right now. Please try again."
-      context_used = False
+      success = False  # Agent encountered an error
 
     # Add assistant response to session (for UI)
     sessions.add_message(  # type: ignore
@@ -95,7 +93,7 @@ async def send_message(message: ChatMessage) -> ChatResponse:
       timestamp=datetime.now(),
       session_id=session_id,
       requires_action=False,
-      context_used=context_used,
+      success=success,
     )
 
     logger.info(f"Processed message for session {session_id[:8]}...")
