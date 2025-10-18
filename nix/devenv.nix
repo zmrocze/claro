@@ -18,6 +18,45 @@
 
         scripts.local-jupyter.exec = "uv run jupyter notebook --no-browser --ip=127.0.0.1 --port=8888 --NotebookApp.token= --NotebookApp.password= --NotebookApp.allow_origin=*";
 
+        scripts.generate-types.exec = ''
+          echo "🔄 Generating TypeScript types from FastAPI backend..."
+          
+          # Check if backend is already running
+          BACKEND_RUNNING=false
+          if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+            echo "✓ Backend is already running"
+            BACKEND_RUNNING=true
+          else
+            echo "⚙️  Starting backend temporarily..."
+            uv run -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 > /dev/null 2>&1 &
+            BACKEND_PID=$!
+            
+            # Wait for backend to be ready (max 30 seconds)
+            echo "⏳ Waiting for backend to start..."
+            for i in {1..30}; do
+              if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+                echo "✓ Backend is ready"
+                break
+              fi
+              sleep 1
+            done
+          fi
+          
+          # Generate types
+          echo "📝 Generating TypeScript types..."
+          cd frontend
+          npm run generate-types
+          cd ..
+          
+          # Stop backend if we started it
+          if [ "$BACKEND_RUNNING" = false ]; then
+            echo "🛑 Stopping temporary backend..."
+            kill $BACKEND_PID 2>/dev/null || true
+          fi
+          
+          echo "✅ TypeScript types generated successfully in frontend/src/api-client/"
+        '';
+
         # https://devenv.sh/tests/
         enterTest = ''
           echo "Running tests"

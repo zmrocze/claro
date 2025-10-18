@@ -8,10 +8,10 @@ from contextlib import asynccontextmanager
 import uvicorn
 import logging
 
-from api.chat import router as chat_router
-from api.notifications import router as notifications_router
-from api.actions import router as actions_router
-from middleware import setup_middleware
+from backend.api.chat import router as chat_router
+from backend.api.notifications import router as notifications_router
+from backend.api.actions import router as actions_router
+from backend.middleware import setup_middleware
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

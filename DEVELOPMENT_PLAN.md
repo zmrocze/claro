@@ -130,6 +130,7 @@ App.tsx
 ```
 
 ### 3.2 Key Features
+- Chat application as describe in ux.md
 - Real-time message streaming
 - Rich text formatting (Markdown, code highlighting)
 - Action confirmation dialogs

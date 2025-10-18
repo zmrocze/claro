@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Generated API client
+src/api-client
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
