@@ -19,6 +19,7 @@ import '@/lib/api-config'
 interface UseChatApiResult {
   messages: Message[]
   isLoading: boolean
+  isInitializing: boolean
   error: string | null
   sessionId: string | null
   sendMessage: (content: string) => Promise<void>
@@ -42,6 +43,7 @@ function chatMessageToLlamaMessage(msg: ChatMessage, index: number): Message {
 export function useChatApi(): UseChatApiResult {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
 
@@ -71,18 +73,26 @@ export function useChatApi(): UseChatApiResult {
    * Initialize session - get existing or create new
    */
   const initializeSession = useCallback(async () => {
+    setIsInitializing(true)
     try {
       // Try to get existing session
       let existingSessionId: string | null = sessionStorage.getSessionId()
 
       if (!existingSessionId) {
         // Create new session
+        console.log('Creating new session...')
         const response = await createSessionApiChatSessionPost()
+        console.log('Session creation response:', response)
 
         if (response.data?.session_id) {
           existingSessionId = response.data.session_id
           sessionStorage.setSessionId(existingSessionId as string)
+          console.log('Session created:', existingSessionId)
+        } else {
+          console.error('No session_id in response:', response.data)
         }
+      } else {
+        console.log('Using existing session:', existingSessionId)
       }
 
       setSessionId(existingSessionId)
@@ -94,6 +104,8 @@ export function useChatApi(): UseChatApiResult {
     } catch (err) {
       console.error('Failed to initialize session:', err)
       setError('Failed to initialize chat session')
+    } finally {
+      setIsInitializing(false)
     }
   }, [loadHistory])
 
@@ -103,9 +115,12 @@ export function useChatApi(): UseChatApiResult {
   const sendMessage = useCallback(
     async (content: string) => {
       if (!sessionId) {
-        setError('No active session')
+        console.error('Send message called but no sessionId:', sessionId)
+        setError('No active session. Please wait for initialization.')
         return
       }
+
+      console.log('Sending message with session:', sessionId)
 
       setIsLoading(true)
       setError(null)
@@ -186,6 +201,7 @@ export function useChatApi(): UseChatApiResult {
   return {
     messages,
     isLoading,
+    isInitializing,
     error,
     sessionId,
     sendMessage,
