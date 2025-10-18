@@ -116,9 +116,6 @@ async def execute_action(action: ActionRequest) -> ActionResult:
 - Input validation: Pydantic models for all endpoints
 - Rate limiting: Implement request throttling
 
-**Questions:**
-- **Q4:** Should agent have access to file system or other system resources?
-
 ## Phase 3: Frontend Development
 
 ### 3.1 Component Architecture
@@ -139,9 +136,7 @@ App.tsx
 - Responsive design for mobile/desktop
 
 ### 3.3 State Management
-- Use React Context or Zustand for global state
 - Session memory in local state
-- WebSocket or polling for real-time updates
 
 ## Phase 4: OS Interface Implementation
 
