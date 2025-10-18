@@ -1,102 +1,53 @@
-import {
-  ChatHandler,
-  ChatSection as ChatSectionUI,
-  Message,
-} from '@llamaindex/chat-ui'
+import { ChatSection as ChatSectionUI } from '@llamaindex/chat-ui'
+import type { ChatHandler, Message } from '@llamaindex/chat-ui'
 
 import '@llamaindex/chat-ui/styles/markdown.css'
 import '@llamaindex/chat-ui/styles/pdf.css'
 import '@llamaindex/chat-ui/styles/editor.css'
-import { useState } from 'react'
+import { useChatApi } from '@/hooks/useChatApi'
 
-const initialMessages: Message[] = [
-  {
-    id: '1',
-    parts: [{ type: 'text', text: 'Write simple Javascript hello world code' }],
-    role: 'user',
-  },
-  {
-    id: '2',
-    role: 'assistant',
-    parts: [
-      {
-        type: 'text',
-        text: 'Got it! Here\'s the simplest JavaScript code to print "Hello, World!" to the console:\n\n```javascript\nconsole.log("Hello, World!");\n```\n\nYou can run this code in any JavaScript environment, such as a web browser\'s console or a Node.js environment. Just paste the code and execute it to see the output.',
-      },
-    ],
-  },
-  {
-    id: '3',
-    parts: [{ type: 'text', text: 'Write a simple math equation' }],
-    role: 'user',
-  },
-  {
-    id: '4',
-    role: 'assistant',
-    parts: [
-      {
-        type: 'text',
-        text: "Let's explore a simple mathematical equation using LaTeX:\n\n The quadratic formula is: $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\n\nThis formula helps us solve quadratic equations in the form $ax^2 + bx + c = 0$. The solution gives us the x-values where the parabola intersects the x-axis.",
-      },
-    ],
-  },
-]
-
+/**
+ * Main chat section component
+ * Connects the llamaindex chat UI to our backend API
+ */
 export function ChatSection() {
-  // You can replace the handler with a useChat hook from Vercel AI SDK
-  const handler = useMockChat(initialMessages)
-  return (
-    <div className="flex max-h-[80vh] flex-col gap-6 overflow-y-auto">
-      <ChatSectionUI handler={handler} />
-    </div>
-  )
-}
+  const { messages, isLoading, error, sendMessage, clearError } = useChatApi()
 
-function useMockChat(initMessages: Message[]): ChatHandler {
-  const [messages, setMessages] = useState<Message[]>(initMessages)
-  const [status, setStatus] = useState<
-    'streaming' | 'ready' | 'error' | 'submitted'
-  >('ready')
-
-  const append = async (message: Message) => {
-    const mockResponse: Message = {
-      id: '5',
-      role: 'assistant',
-      parts: [{ type: 'text', text: '' }],
-    }
-    setMessages(prev => [...prev, message, mockResponse])
-
-    const mockContent =
-      'This is a mock response. In a real implementation, this would be replaced with an actual AI response.'
-
-    let streamedContent = ''
-    const words = mockContent.split(' ')
-
-    for (const word of words) {
-      await new Promise(resolve => setTimeout(resolve, 100))
-      streamedContent += (streamedContent ? ' ' : '') + word
-      setMessages(prev => {
-        return [
-          ...prev.slice(0, -1),
-          {
-            id: '6',
-            role: 'assistant',
-            parts: [{ type: 'text', text: streamedContent }],
-          },
-        ]
-      })
-    }
-
-    return mockContent
-  }
-
-  return {
+  // Create ChatHandler for llamaindex chat UI
+  const handler: ChatHandler = {
     messages,
-    status,
+    status: isLoading ? 'streaming' : error ? 'error' : 'ready',
     sendMessage: async (message: Message) => {
-      setStatus('submitted')
-      await append(message)
-      setStatus('ready')
+      // Extract text content from message parts
+      const textContent = message.parts
+        .filter(part => part.type === 'text')
+        .map(part => ('text' in part ? part.text : ''))
+        .join(' ')
+
+      if (textContent.trim()) {
+        await sendMessage(textContent)
+      }
     },
   }
+
+  return (
+    <div className="flex h-full max-h-[85vh] flex-col gap-6">
+      {error && (
+        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
+          <div className="flex items-center justify-between">
+            <p className="text-sm">{error}</p>
+            <button
+              onClick={clearError}
+              className="text-red-600 hover:text-red-800"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-1 flex-col overflow-y-auto">
+        <ChatSectionUI handler={handler} />
+      </div>
+    </div>
+  )
 }
