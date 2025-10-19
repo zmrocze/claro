@@ -3,13 +3,15 @@ Notifications API endpoints
 Handles notification scheduling and preparation
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 import logging
 import yaml
 from pathlib import Path
+
+from backend.exceptions import CarloError
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +113,12 @@ async def get_notification_config() -> NotificationConfig:
     return load_notification_config()
   except Exception as e:
     logger.error(f"Error loading notification config: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="NOTIFICATION_CONFIG_LOAD_ERROR",
+      source="notifications",
+      context="Failed to load notification configuration",
+    )
 
 
 @router.post("/config")
@@ -132,7 +139,12 @@ async def update_notification_config(config: NotificationConfig) -> Dict[str, st
 
   except Exception as e:
     logger.error(f"Error updating notification config: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="NOTIFICATION_CONFIG_UPDATE_ERROR",
+      source="notifications",
+      context="Failed to update notification configuration",
+    )
 
 
 @router.post("/prepare", response_model=NotificationStatus)
@@ -220,7 +232,12 @@ async def prepare_notifications() -> NotificationStatus:
 
   except Exception as e:
     logger.error(f"Error preparing notifications: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="NOTIFICATION_PREPARE_ERROR",
+      source="notifications",
+      context="Failed to prepare notifications",
+    )
 
 
 @router.get("/scheduled", response_model=List[ScheduledNotification])
@@ -246,7 +263,12 @@ async def get_scheduled_notifications() -> List[ScheduledNotification]:
 
   except Exception as e:
     logger.error(f"Error getting scheduled notifications: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="SCHEDULED_NOTIFICATIONS_ERROR",
+      source="notifications",
+      context="Failed to retrieve scheduled notifications",
+    )
 
 
 @router.delete("/scheduled/{notification_id}")
@@ -263,8 +285,10 @@ async def cancel_notification(notification_id: str) -> Dict[str, str]:
     scheduled = [n for n in scheduled if n.get("notification_id") != notification_id]
 
     if len(scheduled) == original_count:
-      raise HTTPException(
-        status_code=404, detail=f"Notification {notification_id} not found"
+      raise CarloError(
+        description=f"Notification {notification_id} not found",
+        name="NOTIFICATION_NOT_FOUND",
+        source="notifications",
       )
 
     state["scheduled_notifications"] = scheduled
@@ -272,11 +296,16 @@ async def cancel_notification(notification_id: str) -> Dict[str, str]:
 
     return {"message": f"Notification {notification_id} cancelled"}
 
-  except HTTPException:
+  except CarloError:
     raise
   except Exception as e:
     logger.error(f"Error cancelling notification: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="NOTIFICATION_CANCEL_ERROR",
+      source="notifications",
+      context="Failed to cancel notification",
+    )
 
 
 @router.post("/test")
@@ -297,4 +326,9 @@ async def test_notification() -> Dict[str, str]:
 
   except Exception as e:
     logger.error(f"Error sending test notification: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="TEST_NOTIFICATION_ERROR",
+      source="notifications",
+      context="Failed to send test notification",
+    )

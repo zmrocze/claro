@@ -3,125 +3,112 @@
  * Manages pending action confirmations and execution
  */
 
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from "react";
 import {
-  getPendingActionsApiActionsPendingGet,
-  confirmActionApiActionsConfirmActionIdPost,
-  cancelActionApiActionsCancelActionIdDelete,
   type ActionConfirmation,
   type ActionResult,
-} from '@/api-client'
+  cancelActionApiActionsCancelActionIdDelete,
+  confirmActionApiActionsConfirmActionIdPost,
+  getPendingActionsApiActionsPendingGet,
+} from "@/api-client";
 
 interface UseActionsResult {
-  pendingActions: ActionConfirmation[]
-  isLoading: boolean
-  error: string | null
-  loadPendingActions: () => Promise<void>
-  confirmAction: (actionId: string) => Promise<ActionResult | null>
-  cancelAction: (actionId: string) => Promise<void>
-  clearError: () => void
+  pendingActions: ActionConfirmation[];
+  isLoading: boolean;
+  loadPendingActions: () => Promise<void>;
+  confirmAction: (actionId: string) => Promise<ActionResult | null>;
+  cancelAction: (actionId: string) => Promise<void>;
 }
 
 /**
  * Custom hook for action management
  */
 export function useActions(): UseActionsResult {
-  const [pendingActions, setPendingActions] = useState<ActionConfirmation[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [pendingActions, setPendingActions] = useState<ActionConfirmation[]>(
+    [],
+  );
+  const [isLoading, setIsLoading] = useState(false);
 
   /**
    * Load pending actions from backend
    */
   const loadPendingActions = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
+    setIsLoading(true);
 
     try {
-      const response = await getPendingActionsApiActionsPendingGet()
+      const response = await getPendingActionsApiActionsPendingGet();
 
       if (response.data) {
-        setPendingActions(response.data)
+        setPendingActions(response.data);
       }
     } catch (err) {
-      console.error('Failed to load pending actions:', err)
-      setError('Failed to load pending actions')
+      console.error("Failed to load pending actions:", err);
+      // HTTP errors are shown by API interceptor
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [])
+  }, []);
 
   /**
    * Confirm and execute an action
    */
   const confirmAction = useCallback(
     async (actionId: string): Promise<ActionResult | null> => {
-      setIsLoading(true)
-      setError(null)
+      setIsLoading(true);
 
       try {
         const response = await confirmActionApiActionsConfirmActionIdPost({
           path: { action_id: actionId },
-        })
+        });
 
         if (response.data) {
           // Remove from pending actions
-          setPendingActions(prev =>
-            prev.filter(action => action.action_id !== actionId)
-          )
-          return response.data
+          setPendingActions((prev) =>
+            prev.filter((action) => action.action_id !== actionId)
+          );
+          return response.data;
         }
 
-        return null
+        return null;
       } catch (err) {
-        console.error('Failed to confirm action:', err)
-        setError('Failed to confirm action')
-        return null
+        console.error("Failed to confirm action:", err);
+        // HTTP errors are shown by API interceptor
+        return null;
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     },
-    []
-  )
+    [],
+  );
 
   /**
    * Cancel a pending action
    */
   const cancelAction = useCallback(async (actionId: string) => {
-    setIsLoading(true)
-    setError(null)
+    setIsLoading(true);
 
     try {
       await cancelActionApiActionsCancelActionIdDelete({
         path: { action_id: actionId },
-      })
+      });
 
       // Remove from pending actions
-      setPendingActions(prev =>
-        prev.filter(action => action.action_id !== actionId)
-      )
+      setPendingActions((prev) =>
+        prev.filter((action) => action.action_id !== actionId)
+      );
     } catch (err) {
-      console.error('Failed to cancel action:', err)
-      setError('Failed to cancel action')
+      console.error("Failed to cancel action:", err);
+      // HTTP errors are shown by API interceptor
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [])
-
-  /**
-   * Clear error state
-   */
-  const clearError = useCallback(() => {
-    setError(null)
-  }, [])
+  }, []);
 
   return {
     pendingActions,
     isLoading,
-    error,
     loadPendingActions,
     confirmAction,
     cancelAction,
-    clearError,
-  }
+  };
 }

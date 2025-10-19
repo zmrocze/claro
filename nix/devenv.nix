@@ -85,6 +85,9 @@
               install.enable = true;
             };
           };
+          typescript = {
+            enable = true;
+          };
 
           nix = {
             enable = true;
@@ -105,6 +108,12 @@
           ruff.enable = true;
           ruff-format.enable = true;
           pyright.enable = true;
+
+          denofmt.enable = true;
+          denolint.enable = true;
+          # eslint.enable = true;
+
+          # html-tidy.enable = true;
         };
 
         # See full reference at https://devenv.sh/reference/options/

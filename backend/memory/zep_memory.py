@@ -34,6 +34,7 @@ class ZepMemory(MemoryProvider):
     # Initialize Zep client
     try:
       if self.api_key:
+        ## TODO:THIS fails, probably, probably api_key is None
         self.client = Zep(api_key=self.api_key, base_url=self.api_url)
       else:
         # For local Zep without authentication

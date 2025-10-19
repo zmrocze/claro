@@ -3,13 +3,15 @@ Actions API endpoints
 Handles action execution with user confirmation
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 from enum import Enum
 import logging
 import uuid
+
+from backend.exceptions import CarloError
 
 logger = logging.getLogger(__name__)
 
@@ -234,7 +236,12 @@ async def execute_action(request: ActionRequest) -> ActionResult:
 
   except Exception as e:
     logger.error(f"Error processing action request: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="ACTION_REQUEST_ERROR",
+      source="actions",
+      context="Failed to process action request",
+    )
 
 
 @router.get("/pending", response_model=List[ActionConfirmation])
@@ -258,7 +265,12 @@ async def get_pending_actions() -> List[ActionConfirmation]:
 
   except Exception as e:
     logger.error(f"Error getting pending actions: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="PENDING_ACTIONS_ERROR",
+      source="actions",
+      context="Failed to retrieve pending actions",
+    )
 
 
 @router.post("/confirm/{action_id}", response_model=ActionResult)
@@ -268,8 +280,10 @@ async def confirm_action(action_id: str) -> ActionResult:
   """
   try:
     if action_id not in _pending_actions:
-      raise HTTPException(
-        status_code=404, detail=f"Action {action_id} not found or expired"
+      raise CarloError(
+        description=f"Action {action_id} not found or has expired",
+        name="ACTION_NOT_FOUND",
+        source="actions",
       )
 
     action = _pending_actions[action_id]
@@ -278,7 +292,11 @@ async def confirm_action(action_id: str) -> ActionResult:
     if action.expires_at < datetime.now():
       del _pending_actions[action_id]
       _action_results[action_id].status = "expired"
-      raise HTTPException(status_code=410, detail="Action has expired")
+      raise CarloError(
+        description="Action has expired and can no longer be confirmed",
+        name="ACTION_EXPIRED",
+        source="actions",
+      )
 
     # Execute the action
     handler = ACTION_HANDLERS.get(action.action_type)
@@ -317,11 +335,16 @@ async def confirm_action(action_id: str) -> ActionResult:
       logger.error(f"Action {action_id} execution failed: {e}")
       return result
 
-  except HTTPException:
+  except CarloError:
     raise
   except Exception as e:
     logger.error(f"Error confirming action: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="ACTION_CONFIRM_ERROR",
+      source="actions",
+      context="Failed to confirm action",
+    )
 
 
 @router.delete("/cancel/{action_id}")
@@ -331,7 +354,11 @@ async def cancel_action(action_id: str) -> Dict[str, str]:
   """
   try:
     if action_id not in _pending_actions:
-      raise HTTPException(status_code=404, detail=f"Action {action_id} not found")
+      raise CarloError(
+        description=f"Action {action_id} not found",
+        name="ACTION_NOT_FOUND",
+        source="actions",
+      )
 
     del _pending_actions[action_id]
 
@@ -341,11 +368,16 @@ async def cancel_action(action_id: str) -> Dict[str, str]:
     logger.info(f"Action {action_id} cancelled")
     return {"message": f"Action {action_id} cancelled successfully"}
 
-  except HTTPException:
+  except CarloError:
     raise
   except Exception as e:
     logger.error(f"Error cancelling action: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="ACTION_CANCEL_ERROR",
+      source="actions",
+      context="Failed to cancel action",
+    )
 
 
 @router.get("/result/{action_id}", response_model=ActionResult)
@@ -355,15 +387,24 @@ async def get_action_result(action_id: str) -> ActionResult:
   """
   try:
     if action_id not in _action_results:
-      raise HTTPException(status_code=404, detail=f"Action {action_id} not found")
+      raise CarloError(
+        description=f"Action {action_id} not found",
+        name="ACTION_RESULT_NOT_FOUND",
+        source="actions",
+      )
 
     return _action_results[action_id]
 
-  except HTTPException:
+  except CarloError:
     raise
   except Exception as e:
     logger.error(f"Error getting action result: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="ACTION_RESULT_ERROR",
+      source="actions",
+      context="Failed to retrieve action result",
+    )
 
 
 @router.get("/history", response_model=List[ActionResult])
@@ -379,4 +420,9 @@ async def get_action_history(limit: int = 50) -> List[ActionResult]:
 
   except Exception as e:
     logger.error(f"Error getting action history: {e}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise CarloError.from_exception(
+      e,
+      name="ACTION_HISTORY_ERROR",
+      source="actions",
+      context="Failed to retrieve action history",
+    )

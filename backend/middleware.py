@@ -12,6 +12,8 @@ from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from backend.exceptions import CarloError
+
 logger = logging.getLogger(__name__)
 
 
@@ -81,23 +83,27 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     # Check burst limit
     if not self._check_burst_limit(client_ip, now):
       logger.warning(f"Burst limit exceeded for {client_ip}")
+      error = CarloError(
+        description="Too many requests in a short time. Please slow down and try again in 10 seconds.",
+        name="BURST_LIMIT_EXCEEDED",
+        source="rate_limiter",
+      )
       return JSONResponse(
         status_code=429,
-        content={
-          "detail": "Too many requests in a short time. Please slow down.",
-          "retry_after": "10 seconds",
-        },
+        content=error.to_response().model_dump(),
       )
 
     # Check rate limits
     if not self._check_rate_limits(client_ip, now):
       logger.warning(f"Rate limit exceeded for {client_ip}")
+      error = CarloError(
+        description="Rate limit exceeded. Please try again in 60 seconds.",
+        name="RATE_LIMIT_EXCEEDED",
+        source="rate_limiter",
+      )
       return JSONResponse(
         status_code=429,
-        content={
-          "detail": "Rate limit exceeded. Please try again later.",
-          "retry_after": "60 seconds",
-        },
+        content=error.to_response().model_dump(),
       )
 
     # Record this request
@@ -233,7 +239,8 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
 
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
   """
-  Middleware for consistent error handling
+  Middleware for consistent error handling.
+  Converts all exceptions to CarloError format for uniform error responses.
   """
 
   async def dispatch(self, request: Request, call_next):
@@ -242,27 +249,72 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
       response = await call_next(request)
       return response
 
-    except HTTPException:
-      # Let FastAPI handle HTTP exceptions
-      raise
+    except CarloError as e:
+      # Already in CarloError format, just log and return
+      logger.error(f"[{e.source}] {e.name}: {e.description}")
+      error_response = e.to_response()
+      return JSONResponse(
+        status_code=self._get_status_code(e),
+        content=error_response.model_dump(),
+      )
+
+    except HTTPException as e:
+      # Convert FastAPI HTTPException to CarloError format
+      logger.error(f"HTTP error {e.status_code}: {e.detail}")
+      carlo_error = CarloError(
+        description=str(e.detail),
+        name=f"HTTP_{e.status_code}",
+        source="http",
+      )
+      return JSONResponse(
+        status_code=e.status_code,
+        content=carlo_error.to_response().model_dump(),
+      )
 
     except ValueError as e:
+      # Validation errors
       logger.error(f"Validation error: {e}")
+      carlo_error = CarloError(
+        description=str(e),
+        name="VALIDATION_ERROR",
+        source="validation",
+        caused_by=f"{e.__class__.__name__}: {str(e)}",
+      )
       return JSONResponse(
-        status_code=400, content={"detail": str(e), "type": "validation_error"}
+        status_code=400,
+        content=carlo_error.to_response().model_dump(),
       )
 
     except Exception as e:
+      # Catch-all for unexpected errors
       logger.error(f"Unhandled error: {e}", exc_info=True)
 
-      # Don't expose internal errors in production
+      # Get traceback for better debugging
+      import traceback
+
+      tb = traceback.format_exc()
+
+      carlo_error = CarloError(
+        description=str(e),
+        name="INTERNAL_ERROR",
+        source="unknown",
+        caused_by=f"{e.__class__.__name__}: {str(e)}\n\nTraceback:\n{tb}",
+      )
       return JSONResponse(
         status_code=500,
-        content={
-          "detail": "An internal error occurred. Please try again later.",
-          "type": "internal_error",
-        },
+        content=carlo_error.to_response().model_dump(),
       )
+
+  def _get_status_code(self, error: CarloError) -> int:
+    """Determine HTTP status code based on error type"""
+    if error.source == "rate_limiter":
+      return 429
+    elif error.source == "validation":
+      return 400
+    elif error.source in ["agent", "backend", "actions", "notifications", "unknown"]:
+      return 500
+    else:
+      return 500
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
