@@ -18,6 +18,8 @@ dependencies = [
   "python-dotenv",
   "zep-cloud",
   "ipywidgets",
+  "asgi-correlation-id",
+  "slowapi",
 ]
 
 [project.optional-dependencies]

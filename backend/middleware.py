@@ -4,16 +4,19 @@ Middleware for request validation and rate limiting
 
 import time
 import logging
-from typing import Dict, Optional
+from typing import Dict
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
 
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
+from asgi_correlation_id import CorrelationIdMiddleware
+from slowapi.errors import RateLimitExceeded
+from backend.exceptions import CarloError, get_status_code
 
-from backend.exceptions import CarloError
-
+# Rate limiting
 logger = logging.getLogger(__name__)
 
 
@@ -162,103 +165,36 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     return True
 
 
-class RequestValidationMiddleware(BaseHTTPMiddleware):
+async def error_handler(_request: Request, exc: Exception):
   """
-  Middleware for request validation and security
-  """
-
-  def __init__(
-    self,
-    app,
-    max_content_length: int = 10 * 1024 * 1024,  # 10MB
-    allowed_content_types: Optional[list] = None,
-  ):
-    """
-    Initialize request validator
-
-    Args:
-      app: FastAPI application
-      max_content_length: Maximum allowed request body size
-      allowed_content_types: List of allowed content types
-    """
-    super().__init__(app)
-    self.max_content_length = max_content_length
-    self.allowed_content_types = allowed_content_types or [
-      "application/json",
-      "application/x-www-form-urlencoded",
-      "multipart/form-data",
-      "text/plain",
-    ]
-
-  async def dispatch(self, request: Request, call_next):
-    """Validate the request"""
-
-    # Skip validation for GET requests and special paths
-    if request.method == "GET" or request.url.path in ["/docs", "/openapi.json"]:
-      return await call_next(request)
-
-    # Check content length
-    content_length = request.headers.get("content-length")
-    if content_length:
-      try:
-        length = int(content_length)
-        if length > self.max_content_length:
-          logger.warning(f"Request too large: {length} bytes")
-          return JSONResponse(
-            status_code=413,
-            content={
-              "detail": f"Request body too large. Maximum size is {self.max_content_length} bytes"
-            },
-          )
-      except ValueError:
-        return JSONResponse(
-          status_code=400, content={"detail": "Invalid content-length header"}
-        )
-
-    # Check content type for POST/PUT/PATCH requests
-    if request.method in ["POST", "PUT", "PATCH"]:
-      content_type = request.headers.get("content-type", "").split(";")[0].strip()
-
-      if content_type and not any(
-        allowed in content_type for allowed in self.allowed_content_types
-      ):
-        logger.warning(f"Invalid content type: {content_type}")
-        return JSONResponse(
-          status_code=415,
-          content={"detail": f"Unsupported content type: {content_type}"},
-        )
-
-    # Process request
-    try:
-      response = await call_next(request)
-      return response
-    except Exception as e:
-      logger.error(f"Error processing request: {e}")
-      raise
-
-
-class ErrorHandlingMiddleware(BaseHTTPMiddleware):
-  """
-  Middleware for consistent error handling.
+  Handle errors consistently
   Converts all exceptions to CarloError format for uniform error responses.
   """
-
-  async def dispatch(self, request: Request, call_next):
-    """Handle errors consistently"""
-    try:
-      response = await call_next(request)
-      return response
-
-    except CarloError as e:
+  match exc:
+    case CarloError() as e:
       # Already in CarloError format, just log and return
       logger.error(f"[{e.source}] {e.name}: {e.description}")
       error_response = e.to_response()
       return JSONResponse(
-        status_code=self._get_status_code(e),
+        status_code=get_status_code(e.source),
         content=error_response.model_dump(),
       )
 
-    except HTTPException as e:
+    case RateLimitExceeded() as e:
+      # Rate limit exceeded
+      logger.warning(f"Rate limit exceeded: {e}")
+      carlo_error = CarloError(
+        description="Rate limit exceeded. Please try again later.",
+        name="RATE_LIMIT_EXCEEDED",
+        source="rate_limiter",
+        caused_by=str(e),
+      )
+      return JSONResponse(
+        status_code=429,
+        content=carlo_error.to_response().model_dump(),
+      )
+
+    case HTTPException() as e:
       # Convert FastAPI HTTPException to CarloError format
       logger.error(f"HTTP error {e.status_code}: {e.detail}")
       carlo_error = CarloError(
@@ -271,7 +207,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         content=carlo_error.to_response().model_dump(),
       )
 
-    except ValueError as e:
+    case ValueError() as e:
       # Validation errors
       logger.error(f"Validation error: {e}")
       carlo_error = CarloError(
@@ -285,7 +221,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         content=carlo_error.to_response().model_dump(),
       )
 
-    except Exception as e:
+    case Exception() as e:
       # Catch-all for unexpected errors
       logger.error(f"Unhandled error: {e}", exc_info=True)
 
@@ -305,59 +241,46 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         content=carlo_error.to_response().model_dump(),
       )
 
-  def _get_status_code(self, error: CarloError) -> int:
-    """Determine HTTP status code based on error type"""
-    if error.source == "rate_limiter":
-      return 429
-    elif error.source == "validation":
-      return 400
-    elif error.source in ["agent", "backend", "actions", "notifications", "unknown"]:
-      return 500
-    else:
-      return 500
 
+class LoggingMiddleware:
+  def __init__(self, app: ASGIApp):
+    self.app = app
 
-class LoggingMiddleware(BaseHTTPMiddleware):
-  """
-  Middleware for request/response logging
-  """
+  async def __call__(self, scope: Scope, receive: Receive, send: Send):
+    if scope["type"] != "http":
+      await self.app(scope, receive, send)
+      return
 
-  async def dispatch(self, request: Request, call_next):
-    """Log requests and responses"""
+    # Log incoming request
     start_time = time.time()
+    method = scope["method"]
+    path = scope["path"]
+    query_string = scope["query_string"].decode()
+    client = scope.get("client", ("unknown", 0))[0]
 
-    # Log request
     logger.info(
-      f"Request: {request.method} {request.url.path} "
-      f"from {request.client.host if request.client else 'unknown'}"
+      f"Request: {method} {path}{'?' + query_string if query_string else ''} "
+      f"from {client}"
     )
 
-    try:
-      response = await call_next(request)
+    # Track response status
+    status_code = None
 
-      # Log response
-      duration = time.time() - start_time
-      logger.info(
-        f"Response: {response.status_code} for {request.method} {request.url.path} "
-        f"(took {duration:.3f}s)"
-      )
+    async def send_wrapper(message):
+      nonlocal status_code
+      if message["type"] == "http.response.start":
+        status_code = message["status"]
+      await send(message)
 
-      # Add custom headers
-      response.headers["X-Process-Time"] = str(duration)
-      response.headers["X-Carlo-Version"] = "0.1.0"
+    # Call the next app
+    await self.app(scope, receive, send_wrapper)
 
-      return response
-
-    except Exception as e:
-      duration = time.time() - start_time
-      logger.error(
-        f"Error processing {request.method} {request.url.path} "
-        f"after {duration:.3f}s: {e}"
-      )
-      raise
+    # Log response
+    duration = time.time() - start_time
+    logger.info(f"Response: {status_code} for {method} {path} (took {duration:.3f}s)")
 
 
-def setup_middleware(app):
+def setup_logging_middleware(app):
   """
   Set up all middleware for the application
 
@@ -369,18 +292,6 @@ def setup_middleware(app):
   # Logging should be outermost to log all requests
   app.add_middleware(LoggingMiddleware)
 
-  # Error handling
-  app.add_middleware(ErrorHandlingMiddleware)
-
-  # Request validation
-  app.add_middleware(
-    RequestValidationMiddleware,
-    max_content_length=10 * 1024 * 1024,  # 10MB
-  )
-
-  # Rate limiting
-  app.add_middleware(
-    RateLimitMiddleware, requests_per_minute=120, requests_per_hour=2000, burst_size=20
-  )
+  app.add_middleware(CorrelationIdMiddleware)
 
   logger.info("Middleware configured successfully")

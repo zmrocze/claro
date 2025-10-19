@@ -7,15 +7,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 import logging
+from asgi_correlation_id import CorrelationIdFilter
 
 from backend.api.chat import router as chat_router
 from backend.api.notifications import router as notifications_router
 from backend.api.actions import router as actions_router
-from backend.middleware import setup_middleware
+from backend.middleware import error_handler, setup_logging_middleware
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.middleware import SlowAPIMiddleware
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+  level=logging.INFO,
+  # format='%(levelname)s [%(correlation_id)s] %(name)s %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+# Add correlation ID filter to all handlers
+for handler in logging.root.handlers:
+  handler.addFilter(CorrelationIdFilter(uuid_length=4))
 
 
 @asynccontextmanager
@@ -36,6 +47,11 @@ app = FastAPI(
   lifespan=lifespan,
 )
 
+limiter = Limiter(key_func=get_remote_address, default_limits=["3600/hour"])
+app.state.limiter = limiter
+
+app.add_exception_handler(Exception, error_handler)
+
 # Configure CORS for frontend
 app.add_middleware(
   CORSMiddleware,
@@ -49,8 +65,10 @@ app.add_middleware(
   allow_headers=["*"],
 )
 
+app.add_middleware(SlowAPIMiddleware)
+
 # Set up additional middleware (rate limiting, validation, etc.)
-setup_middleware(app)
+setup_logging_middleware(app)
 
 # Include routers
 app.include_router(chat_router)

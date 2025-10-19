@@ -20,6 +20,27 @@ ErrorSource = Literal[
 ]
 
 
+def get_status_code(source: ErrorSource) -> int:
+  """Determine HTTP status code based on error source"""
+  if source == "rate_limiter":
+    return 429  # Too Many Requests
+  elif source == "validation":
+    return 400  # Bad Request
+  elif source in [
+    "http",
+    "agent",
+    "backend",
+    "actions",
+    "notifications",
+    "unknown",
+    "network",
+  ]:
+    return 500  # Internal Server Error
+  else:
+    # This should never be reached if all ErrorSource cases are covered
+    return 500
+
+
 class ErrorResponse(BaseModel):
   """Standardized error response model"""
 
@@ -53,10 +74,10 @@ class CarloError(Exception):
         source: Where the error originated from
         caused_by: Original error details if this wraps another error
     """
-    self.description = description
-    self.name = name
-    self.source = source
-    self.caused_by = caused_by
+    self.description: str = description
+    self.name: str = name
+    self.source: ErrorSource = source
+    self.caused_by: Optional[str] = caused_by
     super().__init__(description)
 
   def to_response(self) -> ErrorResponse:
