@@ -40,10 +40,10 @@ function App() {
 
     setToasts((prev) => [...prev, toast]);
 
-    // Auto-dismiss after 10 seconds
+    // Auto-dismiss after 30 seconds
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 10000);
+    }, 30000);
   }, []);
 
   const removeToast = useCallback((id: string) => {

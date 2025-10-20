@@ -22,13 +22,55 @@ export function Toast({ id, message, fullMessage, onClose }: ToastProps) {
         "mb-2 flex cursor-pointer flex-col rounded-lg bg-red-500 shadow-lg transition-all hover:bg-red-600",
         isExpanded ? "w-96" : "w-80",
       )}
+      style={{
+        pointerEvents: "auto",
+        marginBottom: "0.5rem",
+        // Add explicit inline styles to ensure visibility
+        backgroundColor: "#ef4444",
+        color: "white",
+        padding: "0.75rem",
+        borderRadius: "0.5rem",
+        width: isExpanded ? "24rem" : "20rem",
+        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+      }}
       onClick={() => fullMessage && setIsExpanded(!isExpanded)}
     >
-      <div className="flex items-start justify-between p-3">
-        <div className="flex-1 pr-2">
-          <p className="text-sm font-medium text-white">{message}</p>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ flex: 1, paddingRight: "0.5rem" }}>
+          <p
+            style={{
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              color: "white",
+              margin: 0,
+            }}
+          >
+            {message}
+          </p>
           {isExpanded && fullMessage && (
-            <pre className="mt-2 max-h-64 overflow-auto rounded bg-black/20 p-2 text-xs text-white">
+            <pre
+              style={{
+                marginTop: "0.5rem",
+                maxHeight: "16rem",
+                overflow: "auto",
+                borderRadius: "0.25rem",
+                backgroundColor: "rgba(0, 0, 0, 0.2)",
+                padding: "0.5rem",
+                fontSize: "0.75rem",
+                color: "white",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
               {fullMessage}
             </pre>
           )}
@@ -39,10 +81,16 @@ export function Toast({ id, message, fullMessage, onClose }: ToastProps) {
             e.stopPropagation();
             onClose(id);
           }}
-          className="text-white/80 hover:text-white"
+          style={{
+            color: "rgba(255, 255, 255, 0.8)",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: 0,
+          }}
           aria-label="Close"
         >
-          <X className="h-4 w-4" />
+          <X style={{ width: "1rem", height: "1rem" }} />
         </button>
       </div>
     </div>
@@ -60,11 +108,18 @@ interface ToastContainerProps {
 
 export function ToastContainer({ toasts, onClose }: ToastContainerProps) {
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col">
+    <div
+      className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col"
+      style={{
+        position: "fixed",
+        bottom: "1rem",
+        right: "1rem",
+        zIndex: 9999,
+        pointerEvents: "none",
+      }}
+    >
       {toasts.map((toast) => (
-        <div key={toast.id} className="pointer-events-auto">
-          <Toast {...toast} onClose={onClose} />
-        </div>
+        <Toast key={toast.id} {...toast} onClose={onClose} />
       ))}
     </div>
   );
