@@ -29,7 +29,7 @@ client.interceptors.response.use(async (response) => {
       if (contentType?.includes("application/json")) {
         const errorData = await response.clone().json();
 
-        // Handle structured CarloError format
+        // Handle structured AppError format
         if (errorData.description && errorData.name && errorData.source) {
           const message = `[${errorData.source}] ${errorData.description}`;
           const fullDetails = [

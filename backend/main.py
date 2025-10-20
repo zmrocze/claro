@@ -12,7 +12,7 @@ from asgi_correlation_id import CorrelationIdFilter
 from backend.api.chat import router as chat_router
 from backend.api.notifications import router as notifications_router
 from backend.api.actions import router as actions_router
-from backend.middleware import error_handler, setup_logging_middleware
+from backend.middleware import ErrorHandlingMiddleware, setup_logging_middleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
@@ -45,12 +45,11 @@ app = FastAPI(
   description="Personal AI assistant with chat interface and notifications",
   version="0.1.0",
   lifespan=lifespan,
+  exception_handlers={},
 )
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["3600/hour"])
-app.state.limiter = limiter
-
-app.add_exception_handler(Exception, error_handler)
+# innermost
+app.add_middleware(ErrorHandlingMiddleware)
 
 # Configure CORS for frontend
 app.add_middleware(
@@ -65,9 +64,12 @@ app.add_middleware(
   allow_headers=["*"],
 )
 
+limiter = Limiter(key_func=get_remote_address, default_limits=["3600/hour"])
+app.state.limiter = limiter
+
 app.add_middleware(SlowAPIMiddleware)
 
-# Set up additional middleware (rate limiting, validation, etc.)
+# outermost
 setup_logging_middleware(app)
 
 # Include routers

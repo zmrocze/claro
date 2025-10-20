@@ -11,7 +11,7 @@ import logging
 import yaml
 from pathlib import Path
 
-from backend.exceptions import CarloError
+from backend.exceptions import AppError
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ async def get_notification_config() -> NotificationConfig:
     return load_notification_config()
   except Exception as e:
     logger.error(f"Error loading notification config: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="NOTIFICATION_CONFIG_LOAD_ERROR",
       source="notifications",
@@ -139,7 +139,7 @@ async def update_notification_config(config: NotificationConfig) -> Dict[str, st
 
   except Exception as e:
     logger.error(f"Error updating notification config: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="NOTIFICATION_CONFIG_UPDATE_ERROR",
       source="notifications",
@@ -232,7 +232,7 @@ async def prepare_notifications() -> NotificationStatus:
 
   except Exception as e:
     logger.error(f"Error preparing notifications: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="NOTIFICATION_PREPARE_ERROR",
       source="notifications",
@@ -263,7 +263,7 @@ async def get_scheduled_notifications() -> List[ScheduledNotification]:
 
   except Exception as e:
     logger.error(f"Error getting scheduled notifications: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="SCHEDULED_NOTIFICATIONS_ERROR",
       source="notifications",
@@ -285,7 +285,7 @@ async def cancel_notification(notification_id: str) -> Dict[str, str]:
     scheduled = [n for n in scheduled if n.get("notification_id") != notification_id]
 
     if len(scheduled) == original_count:
-      raise CarloError(
+      raise AppError(
         description=f"Notification {notification_id} not found",
         name="NOTIFICATION_NOT_FOUND",
         source="notifications",
@@ -296,11 +296,11 @@ async def cancel_notification(notification_id: str) -> Dict[str, str]:
 
     return {"message": f"Notification {notification_id} cancelled"}
 
-  except CarloError:
+  except AppError:
     raise
   except Exception as e:
     logger.error(f"Error cancelling notification: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="NOTIFICATION_CANCEL_ERROR",
       source="notifications",
@@ -326,7 +326,7 @@ async def test_notification() -> Dict[str, str]:
 
   except Exception as e:
     logger.error(f"Error sending test notification: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="TEST_NOTIFICATION_ERROR",
       source="notifications",

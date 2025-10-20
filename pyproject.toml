@@ -5,7 +5,7 @@ description = "Personal AI assistant app with chat interface and notifications"
 
 requires-python = ">=3.12"
 dependencies = [
-  "fastapi",
+  "fastapi==0.119.0",
   "uvicorn[standard]",
   "pywebview",
   "langgraph",

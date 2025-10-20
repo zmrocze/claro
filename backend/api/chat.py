@@ -9,7 +9,7 @@ import traceback
 
 from backend.agent import get_agent
 from backend.sessions import get_session_manager
-from backend.exceptions import CarloError
+from backend.exceptions import AppError
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ async def send_message(message: ChatMessage) -> ChatResponse:
     try:
       agent = await get_agent()
     except Exception as e:
-      raise CarloError.from_exception(
+      raise AppError.from_exception(
         e,
         name="AGENT_INITIALIZATION_ERROR",
         source="agent",
@@ -65,7 +65,7 @@ async def send_message(message: ChatMessage) -> ChatResponse:
     try:
       sessions = get_session_manager()
     except Exception as e:
-      raise CarloError.from_exception(
+      raise AppError.from_exception(
         e,
         name="SESSION_MANAGER_ERROR",
         source="backend",
@@ -80,7 +80,7 @@ async def send_message(message: ChatMessage) -> ChatResponse:
         # Link session to the single agent thread
         sessions.set_thread_id(session_id, agent.thread_id)  # type: ignore
       except Exception as e:
-        raise CarloError.from_exception(
+        raise AppError.from_exception(
           e,
           name="SESSION_CREATION_ERROR",
           source="backend",
@@ -96,7 +96,7 @@ async def send_message(message: ChatMessage) -> ChatResponse:
         name=message.name,
       )
     except Exception as e:
-      raise CarloError.from_exception(
+      raise AppError.from_exception(
         e,
         name="MESSAGE_STORAGE_ERROR",
         source="backend",
@@ -108,7 +108,7 @@ async def send_message(message: ChatMessage) -> ChatResponse:
       response_content = await agent.ainvoke(message=message.content)
     except Exception as e:
       # Agent errors should be surfaced to user
-      raise CarloError.from_exception(
+      raise AppError.from_exception(
         e,
         name="AGENT_EXECUTION_ERROR",
         source="agent",
@@ -136,12 +136,12 @@ async def send_message(message: ChatMessage) -> ChatResponse:
     logger.info(f"Processed message for session {session_id[:8]}...")
     return response
 
-  except CarloError:
-    # Re-raise CarloError as-is
+  except AppError:
+    # Re-raise AppError as-is
     raise
   except Exception as e:
     # Catch any unexpected errors
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="UNEXPECTED_ERROR",
       source="backend",
@@ -173,7 +173,7 @@ async def get_conversation_history(
     return ConversationHistory(messages=messages, session_id=session_id)
 
   except Exception as e:
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="HISTORY_RETRIEVAL_ERROR",
       source="backend",
@@ -193,7 +193,7 @@ async def clear_conversation_history(session_id: str):
     success = sessions.clear_session(session_id)  # type: ignore
 
     if not success:
-      raise CarloError(
+      raise AppError(
         description=f"Session {session_id} not found",
         name="SESSION_NOT_FOUND",
         source="backend",
@@ -201,10 +201,10 @@ async def clear_conversation_history(session_id: str):
 
     return {"message": "History cleared", "session_id": session_id}
 
-  except CarloError:
+  except AppError:
     raise
   except Exception as e:
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="HISTORY_CLEAR_ERROR",
       source="backend",
@@ -237,7 +237,7 @@ async def create_session() -> Dict[str, str]:
     }
 
   except Exception as e:
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="SESSION_CREATION_ERROR",
       source="backend",
@@ -261,7 +261,7 @@ async def list_sessions() -> Dict[str, Any]:
     }
 
   except Exception as e:
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="SESSION_LIST_ERROR",
       source="backend",

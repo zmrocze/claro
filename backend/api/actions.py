@@ -11,7 +11,7 @@ from enum import Enum
 import logging
 import uuid
 
-from backend.exceptions import CarloError
+from backend.exceptions import AppError
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +236,7 @@ async def execute_action(request: ActionRequest) -> ActionResult:
 
   except Exception as e:
     logger.error(f"Error processing action request: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="ACTION_REQUEST_ERROR",
       source="actions",
@@ -265,7 +265,7 @@ async def get_pending_actions() -> List[ActionConfirmation]:
 
   except Exception as e:
     logger.error(f"Error getting pending actions: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="PENDING_ACTIONS_ERROR",
       source="actions",
@@ -280,7 +280,7 @@ async def confirm_action(action_id: str) -> ActionResult:
   """
   try:
     if action_id not in _pending_actions:
-      raise CarloError(
+      raise AppError(
         description=f"Action {action_id} not found or has expired",
         name="ACTION_NOT_FOUND",
         source="actions",
@@ -292,7 +292,7 @@ async def confirm_action(action_id: str) -> ActionResult:
     if action.expires_at < datetime.now():
       del _pending_actions[action_id]
       _action_results[action_id].status = "expired"
-      raise CarloError(
+      raise AppError(
         description="Action has expired and can no longer be confirmed",
         name="ACTION_EXPIRED",
         source="actions",
@@ -335,11 +335,11 @@ async def confirm_action(action_id: str) -> ActionResult:
       logger.error(f"Action {action_id} execution failed: {e}")
       return result
 
-  except CarloError:
+  except AppError:
     raise
   except Exception as e:
     logger.error(f"Error confirming action: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="ACTION_CONFIRM_ERROR",
       source="actions",
@@ -354,7 +354,7 @@ async def cancel_action(action_id: str) -> Dict[str, str]:
   """
   try:
     if action_id not in _pending_actions:
-      raise CarloError(
+      raise AppError(
         description=f"Action {action_id} not found",
         name="ACTION_NOT_FOUND",
         source="actions",
@@ -368,11 +368,11 @@ async def cancel_action(action_id: str) -> Dict[str, str]:
     logger.info(f"Action {action_id} cancelled")
     return {"message": f"Action {action_id} cancelled successfully"}
 
-  except CarloError:
+  except AppError:
     raise
   except Exception as e:
     logger.error(f"Error cancelling action: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="ACTION_CANCEL_ERROR",
       source="actions",
@@ -387,7 +387,7 @@ async def get_action_result(action_id: str) -> ActionResult:
   """
   try:
     if action_id not in _action_results:
-      raise CarloError(
+      raise AppError(
         description=f"Action {action_id} not found",
         name="ACTION_RESULT_NOT_FOUND",
         source="actions",
@@ -395,11 +395,11 @@ async def get_action_result(action_id: str) -> ActionResult:
 
     return _action_results[action_id]
 
-  except CarloError:
+  except AppError:
     raise
   except Exception as e:
     logger.error(f"Error getting action result: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="ACTION_RESULT_ERROR",
       source="actions",
@@ -420,7 +420,7 @@ async def get_action_history(limit: int = 50) -> List[ActionResult]:
 
   except Exception as e:
     logger.error(f"Error getting action history: {e}")
-    raise CarloError.from_exception(
+    raise AppError.from_exception(
       e,
       name="ACTION_HISTORY_ERROR",
       source="actions",

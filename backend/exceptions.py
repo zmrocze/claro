@@ -52,7 +52,7 @@ class ErrorResponse(BaseModel):
   )
 
 
-class CarloError(Exception):
+class AppError(Exception):
   """
   Custom exception class for Carlo application errors.
   All errors should be converted to this format for consistent handling.
@@ -96,9 +96,9 @@ class CarloError(Exception):
     name: str,
     source: ErrorSource,
     context: Optional[str] = None,
-  ) -> "CarloError":
+  ) -> "AppError":
     """
-    Create a CarloError from an existing exception
+    Create a AppError from an existing exception
 
     Args:
         e: The original exception
@@ -107,7 +107,7 @@ class CarloError(Exception):
         context: Additional context to prepend to the description
 
     Returns:
-        CarloError with original exception details preserved
+        AppError with original exception details preserved
     """
     original_msg = str(e)
     description = f"{context}: {original_msg}" if context else original_msg
