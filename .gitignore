@@ -1,5 +1,9 @@
 zep_test_token.txt
 
+# Environment files with secrets
+.env
+.env.local
+
 __pycache__
 
 .ruff_cache

@@ -22,10 +22,14 @@ from zep_cloud.client import AsyncZep
 
 from backend.agent.state import AgentState
 from backend.agent.tools import create_zep_tools, mock_action
-from backend.config import AppConfig, get_grok_api_key, GROK_API_BASE_URL
-from backend.memory import get_memory_client
+from backend.config import (
+  AppConfig,
+  get_grok_api_key,
+  get_zep_api_key,
+  GROK_API_BASE_URL,
+)
+from backend.memory import create_memory_provider
 from backend.memory.base import MemoryProvider
-from backend.config import get_zep_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -54,22 +58,23 @@ class CarloAgent:
   def __init__(
     self,
     user_id: str,
-    first_name: Optional[str] = None,
-    last_name: Optional[str] = None,
-    memory_provider: Optional[MemoryProvider] = None,
+    memory_provider: MemoryProvider,
+    first_name: str,
+    last_name: str,
   ):
     """
     Initialize the Carlo agent
 
     Args:
       user_id: Unique user identifier
+      memory_provider: Initialized memory provider implementation
       first_name: User's first name
       last_name: User's last name
-      memory_provider: Memory provider implementation (uses default if not provided)
     """
     self.user_id = user_id
-    self.first_name = first_name or AppConfig.ZEP_USER_FIRST_NAME
-    self.last_name = last_name or AppConfig.ZEP_USER_LAST_NAME
+    self.first_name = first_name
+    self.last_name = last_name
+    self.memory = memory_provider
 
     # Configure LangSmith tracing if enabled
     if AppConfig.LANGCHAIN_TRACING_V2 and AppConfig.LANGSMITH_API_KEY:
@@ -79,9 +84,6 @@ class CarloAgent:
       logger.info(
         f"LangSmith tracing enabled for project: {AppConfig.LANGSMITH_PROJECT}"
       )
-
-    # Use provided memory provider or get default
-    self.memory = memory_provider or get_memory_client()
 
     # Create single thread for this user (as per app_technical.md)
     # Single, sequential conversation thread for the app instance
@@ -308,22 +310,59 @@ class CarloAgent:
       yield {"error": str(e)}
 
 
-# Singleton agent instance
-_agent_instance: Optional[CarloAgent] = None
-
-
-async def get_agent(
+def new_agent(
   user_id: Optional[str] = None,
   first_name: Optional[str] = None,
   last_name: Optional[str] = None,
+  memory_provider: Optional[MemoryProvider] = None,
 ) -> CarloAgent:
   """
-  Get or create the singleton agent instance
+  Create a new CarloAgent instance with initialized memory provider.
+  This function handles all the initialization logic including:
+  - Creating memory provider from config if not provided
+  - Resolving user_id from config or generating one
+  - Initializing the agent with all dependencies
 
   Args:
     user_id: User ID (will use config or generate if not provided)
     first_name: User's first name
     last_name: User's last name
+    memory_provider: Optional pre-initialized memory provider (will create from config if not provided)
+
+  Returns:
+    Initialized CarloAgent instance
+  """
+  # Resolve all config defaults in one place
+  resolved_user_id = (
+    user_id or AppConfig.ZEP_USER_ID or f"carlo_user_{uuid.uuid4().hex[:8]}"
+  )
+  if "carlo_user_" in resolved_user_id and not user_id:
+    logger.info(f"Generated user ID: {resolved_user_id}")
+
+  resolved_memory = memory_provider or create_memory_provider()
+  resolved_first_name = first_name or AppConfig.ZEP_USER_FIRST_NAME
+  resolved_last_name = last_name or AppConfig.ZEP_USER_LAST_NAME
+
+  # Create agent with fully resolved values
+  agent = CarloAgent(
+    user_id=resolved_user_id,
+    memory_provider=resolved_memory,
+    first_name=resolved_first_name,
+    last_name=resolved_last_name,
+  )
+
+  logger.info(f"Agent created with thread: {agent.thread_id}")
+  return agent
+
+
+# Singleton agent instance
+_agent_instance: Optional[CarloAgent] = None
+
+
+async def get_agent() -> CarloAgent:
+  """
+  Get or create the singleton agent instance.
+  Uses config defaults for all values.
 
   Returns:
     CarloAgent instance
@@ -331,21 +370,6 @@ async def get_agent(
   global _agent_instance
 
   if _agent_instance is None:
-    # Use configured user ID or generate one
-    if user_id is None:
-      user_id = AppConfig.ZEP_USER_ID
-      if user_id is None:
-        user_id = f"carlo_user_{uuid.uuid4().hex[:8]}"
-        logger.info(f"Generated user ID: {user_id}")
-
-    # Create agent
-    _agent_instance = CarloAgent(
-      user_id=user_id,
-      first_name=first_name or AppConfig.ZEP_USER_FIRST_NAME,
-      last_name=last_name or AppConfig.ZEP_USER_LAST_NAME,
-    )
-
-    # User and thread already created in __init__
-    logger.info(f"Agent ready with thread: {_agent_instance.thread_id}")
+    _agent_instance = new_agent()
 
   return _agent_instance

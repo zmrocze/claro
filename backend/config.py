@@ -154,21 +154,24 @@ class AppConfig:
   LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
   LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "2000"))
 
+  # Memory provider settings
+  MEMORY_PROVIDER = os.getenv("MEMORY_PROVIDER", "zep")  # Options: "zep", "mock"
+
   # Zep settings
   ZEP_API_URL = ZEP_API_URL
   ZEP_COLLECTION_NAME = os.getenv("ZEP_COLLECTION_NAME", "carol-memories")
-  
+
   # User settings
   ZEP_USER_ID = os.getenv("ZEP_USER_ID")  # None means will prompt or auto-generate
   ZEP_USER_FIRST_NAME = os.getenv("ZEP_USER_FIRST_NAME", "Carlo")
   ZEP_USER_LAST_NAME = os.getenv("ZEP_USER_LAST_NAME", "User")
   ZEP_USER_EMAIL = os.getenv("ZEP_USER_EMAIL")
-  
+
   # LangSmith settings (for tracing)
   LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
   LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "Carlo-Agent")
   LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"
-  
+
   # Logging
   LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 

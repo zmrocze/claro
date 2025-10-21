@@ -32,7 +32,6 @@ class ErrorHandlingMiddleware:
       nonlocal response_started
       if message["type"] == "http.response.start":
         response_started = True  # Mark that we've started
-      logger.info(f"Send!!!!!!!!!!!!!!: {message}")
       await send(message)
 
     try:
