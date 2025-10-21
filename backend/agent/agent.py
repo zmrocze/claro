@@ -18,14 +18,12 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from pydantic import SecretStr
-from zep_cloud.client import AsyncZep
 
 from backend.agent.state import AgentState
-from backend.agent.tools import create_zep_tools, mock_action
+from backend.agent.tools import mock_action
 from backend.config import (
   AppConfig,
   get_grok_api_key,
-  get_zep_api_key,
   GROK_API_BASE_URL,
 )
 from backend.memory import create_memory_provider
@@ -102,14 +100,9 @@ class CarloAgent:
 
     logger.info(f"Agent using thread: {self.thread_id}")
 
-    # Create tools - needs async Zep client for search
-    # We use the underlying client for tool operations only
-    zep_key = get_zep_api_key()
-    self._zep_async_client = AsyncZep(
-      api_key=zep_key if zep_key else None, base_url=AppConfig.ZEP_API_URL
-    )
-    zep_tools = create_zep_tools(self._zep_async_client, user_id)
-    self.tools = [*zep_tools, mock_action]
+    # Create tools - memory provider handles tool creation
+    memory_tools = self.memory.create_memory_search_tools(user_id)
+    self.tools = [*(memory_tools if memory_tools else []), mock_action]
 
     # Initialize LLM
     self.llm = ChatOpenAI(

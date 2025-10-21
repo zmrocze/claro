@@ -8,11 +8,13 @@ import uuid
 from typing import Optional, List, Dict, Any
 
 from zep_cloud import Zep
+from zep_cloud.client import AsyncZep
 from zep_cloud.types import Message
 
 
 from backend.config import AppConfig, get_zep_api_key
 from backend.memory.base import MemoryProvider
+from backend.agent.tools import create_zep_tools
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +339,27 @@ class ZepMemory(MemoryProvider):
     except Exception as e:
       logger.error(f"Failed to delete thread {thread_id}: {e}")
       raise
+
+  def create_memory_search_tools(self, user_id: str) -> Optional[List[Any]]:
+    """Create memory search tools for the agent
+
+    Args:
+      user_id: User ID to create tools for
+
+    Returns:
+      List of Zep search tools
+    """
+    # Create AsyncZep client for tools
+    try:
+      if self.api_key:
+        async_client = AsyncZep(api_key=self.api_key, base_url=self.api_url)
+      else:
+        async_client = AsyncZep(base_url=self.api_url)
+
+      return create_zep_tools(async_client, user_id)
+    except Exception as e:
+      logger.error(f"Failed to create memory search tools: {e}")
+      return None
 
 
 # Singleton instance
