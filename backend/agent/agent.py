@@ -26,10 +26,25 @@ from backend.config import (
   get_grok_api_key,
   GROK_API_BASE_URL,
 )
+from backend.exceptions import AppError
 from backend.memory import create_memory_provider
 from backend.memory.base import MemoryProvider
 
 logger = logging.getLogger(__name__)
+
+
+def agent_error_from_exception(
+  e: Exception,
+  name: str = "AGENT_ERROR",
+  context: Optional[str] = None,
+) -> AppError:
+  """Helper function to create agent errors from exceptions"""
+  return AppError.from_exception(
+    e=e,
+    name=name,
+    source="agent",
+    context=context,
+  )
 
 
 def system_content_user(context: str):
@@ -161,10 +176,11 @@ class CarloAgent:
 
     except Exception as e:
       logger.error(f"Error in chatbot node: {e}", exc_info=True)
-      error_response = AIMessage(
-        content="I apologize, but I encountered an error processing your request. Please try again."
+      raise agent_error_from_exception(
+        e=e,
+        name="CHATBOT_NODE_ERROR",
+        context="Error processing your request in chatbot node",
       )
-      return {"messages": [error_response]}
 
   def _build_graph(self):
     """Build the LangGraph state graph"""
@@ -265,11 +281,19 @@ class CarloAgent:
         if isinstance(last_message, AIMessage):
           return str(last_message.content)
 
-      return "I apologize, but I couldn't generate a response."
+      raise agent_error_from_exception(
+        e=Exception("Agent failed to generate a response"),
+        name="NO_RESPONSE_GENERATED",
+        context="Agent invocation did not produce a valid response",
+      )
 
     except Exception as e:
       logger.error(f"Error invoking agent: {e}", exc_info=True)
-      return f"I apologize, but I encountered an error: {str(e)}"
+      raise agent_error_from_exception(
+        e=e,
+        name="AGENT_INVOCATION_ERROR",
+        context="Error invoking agent",
+      )
 
   async def astream(
     self,
@@ -300,7 +324,11 @@ class CarloAgent:
 
     except Exception as e:
       logger.error(f"Error streaming from agent: {e}", exc_info=True)
-      yield {"error": str(e)}
+      raise agent_error_from_exception(
+        e=e,
+        name="AGENT_STREAMING_ERROR",
+        context="Error streaming response from agent",
+      )
 
 
 def new_agent(
