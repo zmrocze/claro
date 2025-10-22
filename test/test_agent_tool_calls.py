@@ -11,7 +11,6 @@ Run with: uv run python test/test_agent_tool_calls.py
 
 import asyncio
 import sys
-from unittest.mock import Mock, patch
 
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
@@ -62,25 +61,18 @@ async def test_chatbot_with_tool_calls():
     AIMessage(content="I've completed the action."),
   ]
 
-  fake_llm = GenericFakeChatModel(messages=iter(responses))
+  # Create llm_factory that returns fake LLM (ignore tools - bind_tools not implemented)
+  def test_llm_factory(tools):
+    return GenericFakeChatModel(messages=iter(responses))
 
-  # Mock the AsyncZep creation, API keys, and LLM initialization
-  with (
-    patch("backend.agent.agent.AsyncZep") as mock_zep,
-    patch("backend.agent.agent.get_grok_api_key") as mock_grok_key,
-    patch("backend.agent.agent.ChatOpenAI") as mock_chat_openai,
-  ):
-    mock_zep.return_value = Mock()
-    mock_grok_key.return_value = "fake-grok-key"
-    mock_chat_openai.return_value.bind_tools.return_value = fake_llm
-
-    # Create agent with mock memory
-    agent = CarloAgent(
-      user_id="test_user_tool_calls",
-      first_name="Test",
-      last_name="User",
-      memory_provider=mock_memory,
-    )
+  # Create agent with mock memory and llm factory
+  agent = CarloAgent(
+    user_id="test_user_tool_calls",
+    first_name="Test",
+    last_name="User",
+    memory_provider=mock_memory,
+    llm_factory=test_llm_factory,
+  )
 
   # Invoke agent with a message
   response = await agent.ainvoke("Please perform a test action")

@@ -153,6 +153,7 @@ class AppConfig:
   LLM_MODEL = os.getenv("LLM_MODEL", "grok-beta")
   LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
   LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "2000"))
+  LLM_PROVIDER = os.getenv("LLM_PROVIDER", "grok")  # Options: "grok", "mock"
 
   # Memory provider settings
   MEMORY_PROVIDER = os.getenv("MEMORY_PROVIDER", "zep")  # Options: "zep", "mock"

@@ -6,6 +6,10 @@ import logging
 import os
 import uuid
 from typing import Callable, Optional
+from langchain_core.runnables import Runnable
+from langchain_core.language_models import LanguageModelInput
+from langchain_core.language_models.fake_chat_models import ParrotFakeChatModel
+from langchain_core.messages import BaseMessage
 
 from langchain_core.messages import (
   AIMessage,
@@ -65,6 +69,23 @@ def system_content_tool(context: str):
   return system_content_user(context)
 
 
+def create_grok_llm(tools: list) -> Runnable[LanguageModelInput, BaseMessage]:
+  """Create Grok LLM instance with tools"""
+  return ChatOpenAI(
+    api_key=SecretStr(get_grok_api_key()),
+    base_url=GROK_API_BASE_URL,
+    model=AppConfig.LLM_MODEL,
+    temperature=AppConfig.LLM_TEMPERATURE,
+    max_completion_tokens=AppConfig.LLM_MAX_TOKENS,
+  ).bind_tools(tools)
+
+
+def create_mock_llm(tools: list) -> Runnable[LanguageModelInput, BaseMessage]:
+  """Create mock LLM instance with tools (for testing)"""
+  # ParrotFakeChatModel echoes back the input for testing
+  return ParrotFakeChatModel()
+
+
 class CarloAgent:
   """LangGraph agent with memory integration via MemoryProvider abstraction"""
 
@@ -74,6 +95,7 @@ class CarloAgent:
     memory_provider: MemoryProvider,
     first_name: str,
     last_name: str,
+    llm_factory: Callable[[list], Runnable[LanguageModelInput, BaseMessage]],
   ):
     """
     Initialize the Carlo agent
@@ -83,6 +105,7 @@ class CarloAgent:
       memory_provider: Initialized memory provider implementation
       first_name: User's first name
       last_name: User's last name
+      llm_factory: Function that takes tools and returns configured LLM
     """
     self.user_id = user_id
     self.first_name = first_name
@@ -119,14 +142,8 @@ class CarloAgent:
     memory_tools = self.memory.create_memory_search_tools(user_id)
     self.tools = [*(memory_tools if memory_tools else []), mock_action]
 
-    # Initialize LLM
-    self.llm = ChatOpenAI(
-      api_key=SecretStr(get_grok_api_key()),
-      base_url=GROK_API_BASE_URL,
-      model=AppConfig.LLM_MODEL,
-      temperature=AppConfig.LLM_TEMPERATURE,
-      max_completion_tokens=AppConfig.LLM_MAX_TOKENS,
-    ).bind_tools(self.tools)
+    # Initialize LLM using factory
+    self.llm = llm_factory(self.tools)
 
     # Build the graph
     self.graph = self._build_graph()
@@ -336,12 +353,16 @@ def new_agent(
   first_name: Optional[str] = None,
   last_name: Optional[str] = None,
   memory_provider: Optional[MemoryProvider] = None,
+  llm_factory: Optional[
+    Callable[[list], Runnable[LanguageModelInput, BaseMessage]]
+  ] = None,
 ) -> CarloAgent:
   """
   Create a new CarloAgent instance with initialized memory provider.
   This function handles all the initialization logic including:
   - Creating memory provider from config if not provided
   - Resolving user_id from config or generating one
+  - Creating LLM factory based on LLM_PROVIDER config
   - Initializing the agent with all dependencies
 
   Args:
@@ -349,6 +370,7 @@ def new_agent(
     first_name: User's first name
     last_name: User's last name
     memory_provider: Optional pre-initialized memory provider (will create from config if not provided)
+    llm_factory: Optional LLM factory function (will create from config if not provided)
 
   Returns:
     Initialized CarloAgent instance
@@ -364,12 +386,29 @@ def new_agent(
   resolved_first_name = first_name or AppConfig.ZEP_USER_FIRST_NAME
   resolved_last_name = last_name or AppConfig.ZEP_USER_LAST_NAME
 
+  # Resolve LLM factory based on config
+  if llm_factory is None:
+    provider = AppConfig.LLM_PROVIDER.lower()
+    if provider == "grok":
+      resolved_llm_factory = create_grok_llm
+    elif provider == "mock":
+      resolved_llm_factory = create_mock_llm
+    else:
+      raise AppError(
+        description=f"Unknown LLM_PROVIDER: {provider}. Expected 'grok' or 'mock'",
+        name="CONFIG_ERROR",
+        source="agent",
+      )
+  else:
+    resolved_llm_factory = llm_factory
+
   # Create agent with fully resolved values
   agent = CarloAgent(
     user_id=resolved_user_id,
     memory_provider=resolved_memory,
     first_name=resolved_first_name,
     last_name=resolved_last_name,
+    llm_factory=resolved_llm_factory,
   )
 
   logger.info(f"Agent created with thread: {agent.thread_id}")
