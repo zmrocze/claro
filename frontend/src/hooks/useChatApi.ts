@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { Message } from "@llamaindex/chat-ui";
+import type { Message as LlamaMessage } from "@llamaindex/chat-ui";
 import {
   type ChatMessage,
   createSessionApiChatSessionPost,
@@ -16,6 +16,11 @@ import { useShowError } from "@/App";
 
 // Import API config to ensure client is configured
 import "@/lib/api-config";
+
+// Extended Message type with error state
+export interface Message extends LlamaMessage {
+  error?: boolean;
+}
 
 interface UseChatApiResult {
   messages: Message[];
@@ -140,54 +145,56 @@ export function useChatApi(): UseChatApiResult {
 
       setMessages((prev) => [...prev, userMessage]);
 
-      try {
-        // Send message to backend
-        const response = await sendMessageApiChatMessagePost({
-          body: {
-            content,
-            role: "user",
-            session_id: sessionId,
-          },
-        });
+      const markMessageAsError = () => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === userMessage.id ? { ...msg, error: true } : msg
+          )
+        );
+      };
 
-        if (response.data) {
-          const assistantResponse = response.data;
+      // Send message to backend
+      const response = await sendMessageApiChatMessagePost({
+        body: {
+          content,
+          role: "user",
+          session_id: sessionId,
+        },
+      });
 
-          // Add assistant response to UI
-          const assistantMessage: Message = {
-            id: `assistant-${Date.now()}`,
-            role: "assistant",
-            parts: [{ type: "text", text: assistantResponse.content }],
-          };
-
-          setMessages((prev) => [...prev, assistantMessage]);
-
-          // Handle action requests if needed
-          if (
-            assistantResponse.requires_action && assistantResponse.action_data
-          ) {
-            console.log("Action required:", assistantResponse.action_data);
-            // TODO: Show action dialog (Phase 2)
-          }
-        } else {
-          throw new Error("No response data from backend");
-        }
-      } catch (err) {
-        console.error("Failed to send message:", err);
-
-        // HTTP errors are already shown by API interceptor
-        // Frontend validation errors need explicit toast
-        if (
-          err instanceof Error && !err.message.toLowerCase().includes("http")
-        ) {
-          showError("Failed to send message", err.stack);
-        }
-
-        // Remove the user message from UI on error
-        setMessages((prev) => prev.slice(0, -1));
-      } finally {
+      // Check if we got an error (already shown by interceptor)
+      if (response.error) {
+        markMessageAsError();
         setIsLoading(false);
+        return;
       }
+
+      if (response.data) {
+        const assistantResponse = response.data;
+
+        // Add assistant response to UI
+        const assistantMessage: Message = {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          parts: [{ type: "text", text: assistantResponse.content }],
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        // Handle action requests if needed
+        if (
+          assistantResponse.requires_action && assistantResponse.action_data
+        ) {
+          console.log("Action required:", assistantResponse.action_data);
+          // TODO: Show action dialog (Phase 2)
+        }
+      } else {
+        // Unexpected case: no data and no error
+        showError("Failed to send message", "No response data from backend");
+        markMessageAsError();
+      }
+
+      setIsLoading(false);
     },
     [sessionId, showError],
   );

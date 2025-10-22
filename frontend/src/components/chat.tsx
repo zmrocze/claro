@@ -1,5 +1,6 @@
 import { ChatSection as ChatSectionUI } from "@llamaindex/chat-ui";
-import type { ChatHandler, Message } from "@llamaindex/chat-ui";
+import type { ChatHandler } from "@llamaindex/chat-ui";
+import type { Message } from "@/hooks/useChatApi";
 
 import "@llamaindex/chat-ui/styles/markdown.css";
 import "@llamaindex/chat-ui/styles/pdf.css";
@@ -27,6 +28,23 @@ export function ChatSection() {
     typeof pendingActions[0] | null
   >(null);
   const [showActionDialog, setShowActionDialog] = useState(false);
+
+  // Apply error styling to messages with error state
+  useEffect(() => {
+    // Find messages with error state and apply data attribute for styling
+    messages.forEach((msg) => {
+      const messageElement = document.querySelector(
+        `[data-message-id="${msg.id}"]`,
+      );
+      if (messageElement) {
+        if (msg.error) {
+          messageElement.setAttribute("data-message-error", "true");
+        } else {
+          messageElement.removeAttribute("data-message-error");
+        }
+      }
+    });
+  }, [messages]);
 
   // Check for pending actions when component mounts or messages change
   useEffect(() => {

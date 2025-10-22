@@ -57,17 +57,5 @@ client.interceptors.response.use(async (response) => {
   return response;
 });
 
-// Add error interceptor to handle network errors
-client.interceptors.error.use((error) => {
-  if (globalErrorHandler) {
-    const message = error instanceof Error
-      ? error.message
-      : "Network error occurred";
-    const fullMessage = error instanceof Error ? error.stack : undefined;
-    globalErrorHandler(message, fullMessage);
-  }
-  return error;
-});
-
 // Export the configured client for direct use if needed
 export { client };

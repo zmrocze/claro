@@ -39,3 +39,18 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Error message styling */
+[data-message-error="true"] {
+  background-color: #fee2e2 !important;
+  border-color: #ef4444 !important;
+  border-left: 4px solid #dc2626 !important;
+}
+
+/* Dark mode error message styling */
+@media (prefers-color-scheme: dark) {
+  [data-message-error="true"] {
+    background-color: #7f1d1d !important;
+    border-color: #dc2626 !important;
+  }
+}
