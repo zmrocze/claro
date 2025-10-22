@@ -79,6 +79,7 @@ export function useChatApi(): UseChatApiResult {
    */
   const initializeSession = useCallback(async () => {
     setIsInitializing(true);
+
     try {
       // Try to get existing session
       let existingSessionId: string | null = sessionStorage.getSessionId();
@@ -89,15 +90,23 @@ export function useChatApi(): UseChatApiResult {
         const response = await createSessionApiChatSessionPost();
         console.log("Session creation response:", response);
 
+        // Backend error already shown by interceptor
+        if (response.error) {
+          return;
+        }
+
+        // Validate response data
         if (response.data?.session_id) {
           existingSessionId = response.data.session_id;
           sessionStorage.setSessionId(existingSessionId as string);
           console.log("Session created:", existingSessionId);
         } else {
-          // Frontend validation error - backend returned invalid response
-          throw new Error(
+          // Backend returned success but invalid data - validation error
+          showError(
+            "Failed to initialize chat session",
             "Backend returned invalid session response (missing session_id)",
           );
+          return;
         }
       } else {
         console.log("Using existing session:", existingSessionId);
@@ -108,13 +117,6 @@ export function useChatApi(): UseChatApiResult {
       // Load conversation history if we have a session
       if (existingSessionId !== null) {
         await loadHistory(existingSessionId);
-      }
-    } catch (err) {
-      console.error("Failed to initialize session:", err);
-      // HTTP errors are already shown by API interceptor
-      // Frontend validation errors need explicit toast
-      if (err instanceof Error && !err.message.toLowerCase().includes("http")) {
-        showError("Failed to initialize chat session", err.stack);
       }
     } finally {
       setIsInitializing(false);
