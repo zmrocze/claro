@@ -8,7 +8,7 @@ import uuid
 from typing import Callable, Optional
 from langchain_core.runnables import Runnable
 from langchain_core.language_models import LanguageModelInput
-from langchain_core.language_models.fake_chat_models import ParrotFakeChatModel
+from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import BaseMessage
 
 from langchain_core.messages import (
@@ -82,8 +82,7 @@ def create_grok_llm(tools: list) -> Runnable[LanguageModelInput, BaseMessage]:
 
 def create_mock_llm(tools: list) -> Runnable[LanguageModelInput, BaseMessage]:
   """Create mock LLM instance with tools (for testing)"""
-  # ParrotFakeChatModel echoes back the input for testing
-  return ParrotFakeChatModel()
+  return GenericFakeChatModel(messages=iter([AIMessage(content="Mock response")]))
 
 
 class CarloAgent:
