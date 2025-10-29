@@ -13,7 +13,7 @@ dist-ssr
 *.local
 
 # Generated API client
-src/api-client
+# src/api-client
 
 # Editor directories and files
 .vscode/*

@@ -1,8 +1,11 @@
 {
-  perSystem = { pkgs, ...}:
+  perSystem = { pkgs, lib, ...}:
     {
       devenv.shells.default = {
         cachix.enable = true;
+        
+        # Disable containers to avoid nix2container dependency
+        containers = lib.mkForce { };
 
         # https://devenv.sh/basics/
         env.GREET = "devenv";
@@ -109,8 +112,14 @@
           ruff-format.enable = true;
           pyright.enable = true;
 
-          denofmt.enable = true;
-          denolint.enable = true;
+          denolint = {
+            enable = true;
+            excludes = [ "src/api-client/" ];  # Directories to exclude
+          };
+          denofmt = {
+            enable = true;
+            excludes = [ "src/api-client/" ];  # Directories to exclude
+          };
           # eslint.enable = true;
 
           # html-tidy.enable = true;

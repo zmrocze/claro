@@ -9,7 +9,7 @@
     my-lib.url = "github:zmrocze/nix-lib";
     
     devenv.url = "github:cachix/devenv";
-
+    
     pyproject-nix = {
       url = "github:pyproject-nix/pyproject.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -64,7 +64,25 @@
           # myLib = my-lib.lib;
           inherit (nixpkgs) lib;
 
-          # Load a uv workspace from a workspace root.
+          # Use Python 3.12 from nixpkgs
+          python = pkgs.python312;
+
+          # Build frontend
+          frontend = pkgs.callPackage ./frontend { };
+          
+          # Build backend
+          backend = pkgs.callPackage ./backend {
+            inherit uv2nix pyproject-nix pyproject-build-systems;
+            python3 = python;
+          };
+          
+          # Build main Carlo application
+          carlo = pkgs.callPackage ./. {
+            inherit frontend backend;
+            python3 = python;
+          };
+
+          # Legacy: Load a uv workspace from a workspace root.
           # Uv2nix treats all uv projects as workspace projects.
           workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
 
@@ -92,9 +110,6 @@
             # It's using https://pyproject-nix.github.io/pyproject.nix/build.html
           };
 
-          # Use Python 3.12 from nixpkgs
-          python = pkgs.python312;
-
           # Construct package set
           pythonSet =
             # Use base package set from pyproject.nix builders
@@ -114,9 +129,19 @@
       #
       # Enable no optional dependencies for production build.
       packages = {
-        default = pythonSet.mkVirtualEnv "hello-world-env" workspace.deps.default;
-        this = builtins.trace pythonSet.mkPyprojectPackage workspace.mkPyprojectPackage {
-          inherit pkgs;
+        # Main Carlo desktop application
+        default = carlo;
+        inherit frontend backend;
+        
+        # Legacy dev environment
+        dev-env = pythonSet.mkVirtualEnv "carlo-dev-env" workspace.deps.default;
+      };
+      
+      # Application runner
+      apps = {
+        default = {
+          type = "app";
+          program = "${carlo}/bin/carlo";
         };
       };
     };
