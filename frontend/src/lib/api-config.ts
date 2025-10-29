@@ -3,7 +3,7 @@
  * Configures the @hey-api/client-fetch client with base URL and settings
  */
 
-import { client } from "@/api-client";
+import { client } from "@/api-client/client.gen";
 
 // Global error handler for API calls
 let globalErrorHandler:
