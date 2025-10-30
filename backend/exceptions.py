@@ -1,5 +1,5 @@
 """
-Custom exceptions for Carlo backend
+Custom exceptions for Claro backend
 """
 
 from typing import Literal, Optional, cast
@@ -54,7 +54,7 @@ class ErrorResponse(BaseModel):
 
 class AppError(Exception):
   """
-  Custom exception class for Carlo application errors.
+  Custom exception class for Claro application errors.
   All errors should be converted to this format for consistent handling.
   """
 
@@ -66,7 +66,7 @@ class AppError(Exception):
     caused_by: Optional[str] = None,
   ):
     """
-    Initialize a Carlo error
+    Initialize a Claro error
 
     Args:
         description: Human-readable error message

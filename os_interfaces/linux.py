@@ -43,7 +43,7 @@ class LinuxTimerManager(TimerManager):
 class LinuxPersistentStorage(PersistentStorage):
   """Linux persistent storage using local files"""
 
-  def __init__(self, storage_dir: str = "~/.config/carlo"):
+  def __init__(self, storage_dir: str = "~/.config/claro"):
     # TODO: Initialize storage directory
     self.storage_dir = storage_dir
 

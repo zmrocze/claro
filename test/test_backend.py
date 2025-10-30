@@ -1,5 +1,5 @@
 """
-Test script for Carlo backend integration
+Test script for Claro backend integration
 Run with: uv run python test/test_backend.py
 """
 
@@ -28,7 +28,7 @@ def test_session_manager():
   print(f"✓ Created session: {session_id[:8]}...")
 
   # Add messages
-  sessions.add_message("Hello, Carlo!", "user", session_id)
+  sessions.add_message("Hello, Claro!", "user", session_id)
   sessions.add_message("Hello! How can I help you today?", "assistant", session_id)
   print("✓ Added messages to session")
 

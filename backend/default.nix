@@ -39,4 +39,4 @@ let
 
 in
   # Build the application virtual environment with all dependencies
-  pythonSet.mkVirtualEnv "carlo-backend-env" workspace.deps.default
+  pythonSet.mkVirtualEnv "claro-backend-env" workspace.deps.default

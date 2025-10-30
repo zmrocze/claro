@@ -118,7 +118,7 @@ async def send_message(message: ChatMessage) -> ChatResponse:
     # Add assistant response to session (for UI)
     try:
       sessions.add_message(  # type: ignore
-        content=response_content, role="assistant", session_id=session_id, name="Carlo"
+        content=response_content, role="assistant", session_id=session_id, name="Claro"
       )
     except Exception as e:
       # Log but don't fail if we can't store the response

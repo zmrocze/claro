@@ -53,7 +53,7 @@ def agent_error_from_exception(
 
 def system_content_user(context: str):
   # Build system message with context
-  system_content = f"""You are Carlo, a helpful and personalized AI assistant.
+  system_content = f"""You are Claro, a helpful and personalized AI assistant.
     You have access to context about the user from past conversations.
     Use this context to provide personalized and relevant responses.
     If you need to search for specific information from past conversations, use the search tools available to you.
@@ -97,7 +97,7 @@ class CarloAgent:
     llm_factory: Callable[[list], Runnable[LanguageModelInput, BaseMessage]],
   ):
     """
-    Initialize the Carlo agent
+    Initialize the Claro agent
 
     Args:
       user_id: Unique user identifier
@@ -147,7 +147,7 @@ class CarloAgent:
     # Build the graph
     self.graph = self._build_graph()
 
-    logger.info(f"Carlo agent initialized for user {user_id}")
+    logger.info(f"Claro agent initialized for user {user_id}")
 
   # Define the chatbot node
   async def chatbot_node(self, state: AgentState, system_content: Callable[[str], str]):
@@ -169,7 +169,7 @@ class CarloAgent:
           if isinstance(response.content, str)
           else str(response.content),
           role="assistant",
-          name="Carlo",
+          name="Claro",
           thread_id=self.thread_id,
         )
         logger.debug(f"Added messages to thread {self.thread_id}")

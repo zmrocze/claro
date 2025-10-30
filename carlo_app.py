@@ -1,7 +1,7 @@
 """
-Carlo Desktop Application Entry Point
+Claro Desktop Application Entry Point
 
-This script launches the Carlo AI Assistant as a desktop application using pywebview.
+This script launches the Claro AI Assistant as a desktop application using pywebview.
 It starts the FastAPI backend in a background thread and creates a webview window
 to display the React frontend.
 """
@@ -62,7 +62,7 @@ def create_window():
     cache_bust = int(time.time())
 
     window = webview.create_window(
-      title="Carlo AI Assistant",
+      title="Claro AI Assistant",
       url=f"http://{BACKEND_HOST}:{BACKEND_PORT}?v={cache_bust}",
       width=1200,
       height=800,
@@ -98,8 +98,8 @@ def wait_for_backend(timeout=10):
 
 
 def main():
-  """Main entry point for the Carlo desktop application"""
-  logger.info("Starting Carlo AI Assistant...")
+  """Main entry point for the Claro desktop application"""
+  logger.info("Starting Claro AI Assistant...")
 
   # Verify frontend path exists
   if not FRONTEND_PATH.exists():
@@ -123,9 +123,9 @@ def main():
   create_window()
 
   logger.info("Starting pywebview...")
-  webview.start(debug=True, private_mode=False, storage_path="~/.carlo")
+  webview.start(debug=True, private_mode=False, storage_path="~/.claro")
 
-  logger.info("Carlo AI Assistant closed. Exiting...")
+  logger.info("Claro AI Assistant closed. Exiting...")
   # Force exit to ensure daemon threads are killed
   os._exit(0)
 

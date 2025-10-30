@@ -1,7 +1,7 @@
 { lib, buildNpmPackage, pkg-config, cairo, pango, pixman, giflib, libjpeg, libpng, librsvg }:
 
 buildNpmPackage {
-  pname = "carlo-frontend";
+  pname = "claro-frontend";
   version = "0.1.0";
   
   src = lib.fileset.toSource {
@@ -47,7 +47,7 @@ buildNpmPackage {
   dontInstall = true;
   
   meta = with lib; {
-    description = "Carlo AI Assistant - React frontend";
+    description = "Claro AI Assistant - React frontend";
     license = licenses.mit;
     platforms = platforms.all;
   };

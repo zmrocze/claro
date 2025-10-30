@@ -1,3 +1,3 @@
 """
-Tests for Carlo AI Assistant
+Tests for Claro AI Assistant
 """

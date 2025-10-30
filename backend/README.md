@@ -1,6 +1,6 @@
-# Carlo Backend
+# Claro Backend
 
-FastAPI-based backend for the Carlo personal AI assistant app.
+FastAPI-based backend for the Claro personal AI assistant app.
 
 ## Quick Start
 
@@ -127,7 +127,7 @@ Enable LangSmith for debugging and monitoring:
 # .env
 LANGCHAIN_TRACING_V2=true
 LANGSMITH_API_KEY=your_key
-LANGSMITH_PROJECT=Carlo-Agent
+LANGSMITH_PROJECT=Claro-Agent
 ```
 
 ## Testing

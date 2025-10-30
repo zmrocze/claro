@@ -320,7 +320,7 @@ async def test_notification() -> Dict[str, str]:
 
     return {
       "message": "Test notification sent",
-      "content": "This is a test notification from Carlo",
+      "content": "This is a test notification from Claro",
       "timestamp": datetime.now().isoformat(),
     }
 

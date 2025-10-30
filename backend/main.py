@@ -1,5 +1,5 @@
 """
-Carlo App Backend - FastAPI server
+Claro App Backend - FastAPI server
 """
 
 from fastapi import FastAPI
@@ -36,16 +36,16 @@ for handler in logging.root.handlers:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
   """Manage application lifecycle"""
-  logger.info("Starting Carlo backend...")
+  logger.info("Starting Claro backend...")
   # Initialize resources here (Zep, API clients, etc.)
   yield
   # Cleanup
-  logger.info("Shutting down Carlo backend...")
+  logger.info("Shutting down Claro backend...")
 
 
 # Create FastAPI app
 app = FastAPI(
-  title="Carlo AI Assistant",
+  title="Claro AI Assistant",
   description="Personal AI assistant with chat interface and notifications",
   version="0.1.0",
   lifespan=lifespan,
@@ -85,7 +85,7 @@ app.include_router(actions_router)
 @app.get("/health")
 async def health_check():
   """Health check endpoint"""
-  return {"status": "healthy", "service": "carlo-backend", "version": "0.1.0"}
+  return {"status": "healthy", "service": "claro-backend", "version": "0.1.0"}
 
 
 # Static file serving for production (when frontend is bundled)
@@ -122,7 +122,7 @@ else:
   @app.get("/")
   async def root():
     """Root endpoint - API only mode"""
-    return {"message": "Carlo AI Assistant API", "version": "0.1.0"}
+    return {"message": "Claro AI Assistant API", "version": "0.1.0"}
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 """
-Agent module for Carlo app
+Agent module for Claro app
 """
 
 from backend.agent.agent import CarloAgent, get_agent, new_agent

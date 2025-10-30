@@ -1,1 +1,1 @@
-"""Carlo backend module"""
+"""Claro backend module"""

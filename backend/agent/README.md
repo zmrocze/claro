@@ -1,6 +1,6 @@
 # Agent Module
 
-LangGraph agent implementation with Zep memory integration for Carlo app.
+LangGraph agent implementation with Zep memory integration for Claro app.
 
 ## Structure
 
@@ -33,26 +33,31 @@ print(response)
 ## Agent Features
 
 ### Zep Memory Integration
+
 - Retrieves context from Zep on every message
 - Saves all messages to Zep for knowledge graph building
 - Maintains conversation continuity across sessions
 
 ### Available Tools
+
 1. **search_facts**: Search for facts in user's conversation history
 2. **search_nodes**: Search for entities/nodes in knowledge graph
 3. **mock_action**: Placeholder for real actions (to be implemented)
 
 ### LangSmith Tracing
+
 Enable tracing by setting environment variables:
+
 ```bash
 LANGCHAIN_TRACING_V2=true
 LANGSMITH_API_KEY=your_key
-LANGSMITH_PROJECT=Carlo-Agent
+LANGSMITH_PROJECT=Claro-Agent
 ```
 
 ## Architecture
 
 ### Agent Flow
+
 ```
 Message → Get Context from Zep
        → Build Prompt with Context
@@ -63,6 +68,7 @@ Message → Get Context from Zep
 ```
 
 ### State Management
+
 - **AgentState**: Holds messages, thread_id, user_id, names
 - **LangGraph MemorySaver**: Maintains recent message history
 - **Zep**: Long-term memory and knowledge graph
@@ -70,11 +76,13 @@ Message → Get Context from Zep
 ## Configuration
 
 Required in `backend/config.py`:
+
 - `GROK_API_KEY`: LLM API key
 - `ZEP_API_KEY`: Zep API key (optional for local)
 - `ZEP_USER_ID`: User identifier (auto-generated if not set)
 
 Optional:
+
 - `ZEP_USER_FIRST_NAME`, `ZEP_USER_LAST_NAME`
 - `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`
 
@@ -98,6 +106,7 @@ self.tools = [*zep_tools, mock_action, my_new_tool]
 ### Customizing System Prompt
 
 Edit the `system_content` in `agent.py` chatbot function:
+
 ```python
 system_content = f"""Your custom instructions...
 
@@ -109,6 +118,7 @@ User Context:
 ### Modifying Agent Behavior
 
 The agent graph is built in `_build_graph()`:
+
 - Modify the `chatbot` node for different processing
 - Add more nodes for complex workflows
 - Change conditional edges for different routing
@@ -116,11 +126,13 @@ The agent graph is built in `_build_graph()`:
 ## Testing
 
 Run agent tests:
+
 ```bash
 uv run python test/test_agent.py
 ```
 
 Test specific functionality:
+
 ```python
 async def test_my_feature():
     agent = await get_agent()
@@ -138,4 +150,3 @@ async def test_my_feature():
 - Agent state is ephemeral (last 5 messages kept)
 - Full history maintained in Zep
 - Tools are user-specific for proper context
-

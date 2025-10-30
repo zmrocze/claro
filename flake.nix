@@ -76,8 +76,8 @@
             python3 = python;
           };
           
-          # Build main Carlo application
-          carlo = pkgs.callPackage ./. {
+          # Build main Claro application
+          claro = pkgs.callPackage ./. {
             inherit frontend backend;
             python3 = python;
           };
@@ -129,19 +129,19 @@
       #
       # Enable no optional dependencies for production build.
       packages = {
-        # Main Carlo desktop application
-        default = carlo;
+        # Main Claro desktop application
+        default = claro;
         inherit frontend backend;
         
         # Legacy dev environment
-        dev-env = pythonSet.mkVirtualEnv "carlo-dev-env" workspace.deps.default;
+        dev-env = pythonSet.mkVirtualEnv "claro-dev-env" workspace.deps.default;
       };
       
       # Application runner
       apps = {
         default = {
           type = "app";
-          program = "${carlo}/bin/carlo";
+          program = "${claro}/bin/claro";
         };
       };
     };

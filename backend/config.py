@@ -1,5 +1,5 @@
 """
-Configuration module for Carlo App
+Configuration module for Claro App
 Handles secure API key storage and retrieval
 """
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Configuration constants
-KEYRING_SERVICE = "carlo-app"
+KEYRING_SERVICE = "claro-app"
 GROK_API_KEY = "grok_api_key"
 ZEP_API_KEY = "zep_api_key"
 
@@ -164,13 +164,13 @@ class AppConfig:
 
   # User settings
   ZEP_USER_ID = os.getenv("ZEP_USER_ID")  # None means will prompt or auto-generate
-  ZEP_USER_FIRST_NAME = os.getenv("ZEP_USER_FIRST_NAME", "Carlo")
+  ZEP_USER_FIRST_NAME = os.getenv("ZEP_USER_FIRST_NAME", "Claro")
   ZEP_USER_LAST_NAME = os.getenv("ZEP_USER_LAST_NAME", "User")
   ZEP_USER_EMAIL = os.getenv("ZEP_USER_EMAIL")
 
   # LangSmith settings (for tracing)
   LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
-  LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "Carlo-Agent")
+  LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "Claro-Agent")
   LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"
 
   # Logging

@@ -1,5 +1,5 @@
 """
-Zep memory management for Carlo App
+Zep memory management for Claro App
 Handles conversation memory storage and retrieval
 """
 
@@ -95,7 +95,7 @@ class ZepMemory(MemoryProvider):
       self.client.user.add(
         user_id=user_id,
         email=email,
-        first_name=first_name or "Carlo",
+        first_name=first_name or "Claro",
         last_name=last_name or "User",
       )
       logger.info(f"Created new user: {user_id}")
@@ -388,7 +388,7 @@ def initialize_memory() -> None:
 
     # Create default user for the app instance
     user_id = f"carlo_user_{uuid.uuid4().hex[:8]}"
-    memory.create_or_get_user(user_id=user_id, first_name="Carlo", last_name="User")
+    memory.create_or_get_user(user_id=user_id, first_name="Claro", last_name="User")
 
     # Create initial thread
     memory.create_thread()

@@ -1,1 +1,1 @@
-"""API endpoints for Carlo app"""
+"""API endpoints for Claro app"""
