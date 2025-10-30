@@ -17,8 +17,9 @@ export function setGlobalErrorHandler(
 }
 
 // Configure the API client with base URL
+// Use empty string (relative paths) in production, localhost in development
 client.setConfig({
-  baseUrl: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  baseUrl: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000",
 });
 
 // Add response interceptor to handle errors

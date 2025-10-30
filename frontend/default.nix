@@ -27,7 +27,7 @@ buildNpmPackage {
 
   # This hash will need to be updated after first build attempt
   # Run: nix build .#frontend 2>&1 | grep "got:" to get the correct hash
-  npmDepsHash = "sha256-yUV6NSfMbHSj0EbdX5XP4DoPk3AApT+osMS4PgNMamA=";
+  npmDepsHash = "sha256-INnm86y/9Lg8OLG3xeK5iVMCoPKRnk0oTo8gmmALNy0";
   
   # Handle peer dependency conflicts (React 19 vs dependencies expecting React 18)
   # npmFlags = [ "--legacy-peer-deps" ];

@@ -13,6 +13,8 @@ import sys
 import time
 import logging
 import os
+from urllib.request import urlopen
+from urllib.error import URLError
 from pathlib import Path
 
 # Configure logging
@@ -43,8 +45,8 @@ def start_backend_server():
       app,
       host=BACKEND_HOST,
       port=BACKEND_PORT,
-      log_level="warning",  # Reduce noise in production
-      access_log=False,
+      log_level="info",  # Show all requests for debugging
+      access_log=True,  # Enable access logs
     )
   except Exception as e:
     logger.error(f"Failed to start backend server: {e}", exc_info=True)
@@ -56,9 +58,12 @@ def create_window():
   try:
     logger.info("Creating pywebview window")
 
+    # Add timestamp to URL to bust cache
+    cache_bust = int(time.time())
+
     window = webview.create_window(
       title="Carlo AI Assistant",
-      url=f"http://{BACKEND_HOST}:{BACKEND_PORT}",
+      url=f"http://{BACKEND_HOST}:{BACKEND_PORT}?v={cache_bust}",
       width=1200,
       height=800,
       resizable=True,
@@ -70,6 +75,26 @@ def create_window():
   except Exception as e:
     logger.error(f"Failed to create window: {e}", exc_info=True)
     sys.exit(1)
+
+
+def wait_for_backend(timeout=10):
+  """Wait for the backend to be ready by checking the health endpoint"""
+  url = f"http://{BACKEND_HOST}:{BACKEND_PORT}/health"
+  start_time = time.time()
+
+  logger.info("Waiting for backend to be ready...")
+  while time.time() - start_time < timeout:
+    try:
+      with urlopen(url, timeout=1) as response:
+        if response.status == 200:
+          logger.info("Backend is ready!")
+          return True
+    except (URLError, OSError):
+      pass
+    # time.sleep(0.5)
+
+  logger.error(f"Backend failed to start within {timeout} seconds")
+  return False
 
 
 def main():
@@ -88,18 +113,21 @@ def main():
   )
   backend_thread.start()
 
-  # Give the backend a moment to start up
-  logger.info("Waiting for backend to initialize...")
-  time.sleep(2)
+  # Wait for backend to be ready with health check
+  if not wait_for_backend():
+    logger.error("Failed to start backend server")
+    sys.exit(1)
 
   # Create and start the pywebview window
   # This will block until the window is closed
   create_window()
 
   logger.info("Starting pywebview...")
-  webview.start(debug=False)
+  webview.start(debug=True)
 
-  logger.info("Carlo AI Assistant closed")
+  logger.info("Carlo AI Assistant closed. Exiting...")
+  # Force exit to ensure daemon threads are killed
+  os._exit(0)
 
 
 if __name__ == "__main__":

@@ -106,10 +106,16 @@ if FRONTEND_DIR:
 
       # If file exists, serve it
       if file_path.is_file():
+        # Assets with hashes can be cached indefinitely
         return FileResponse(file_path)
 
       # Otherwise serve index.html (SPA fallback)
-      return FileResponse(frontend_path / "index.html")
+      # Important: Don't cache index.html to prevent serving stale builds
+      response = FileResponse(frontend_path / "index.html")
+      response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+      response.headers["Pragma"] = "no-cache"
+      response.headers["Expires"] = "0"
+      return response
 else:
   logger.warning("Frontend directory not found or not set. API-only mode.")
 
