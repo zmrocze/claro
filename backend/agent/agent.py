@@ -2,6 +2,7 @@
 LangGraph agent implementation with Zep memory integration
 """
 
+import itertools
 import logging
 import os
 import uuid
@@ -19,8 +20,9 @@ from langchain_core.messages import (
 )
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, START, StateGraph
+from langgraph.graph import START, StateGraph
 from langgraph.prebuilt import ToolNode
+from langgraph.types import Command
 from pydantic import SecretStr
 
 from backend.agent.state import AgentState
@@ -82,7 +84,22 @@ def create_grok_llm(tools: list) -> Runnable[LanguageModelInput, BaseMessage]:
 
 def create_mock_llm(tools: list) -> Runnable[LanguageModelInput, BaseMessage]:
   """Create mock LLM instance with tools (for testing)"""
-  return GenericFakeChatModel(messages=iter([AIMessage(content="Mock response")]))
+  return GenericFakeChatModel(
+    messages=itertools.cycle([AIMessage(content="Mock response")])
+  )
+
+
+def response_and_should_continue(response: AIMessage) -> Command:
+  if not response.tool_calls:
+    next_node = "end"
+  # Otherwise continue to tools
+  else:
+    next_node = "agent_after_tools"
+
+  return Command(
+    update={"messages": [response]},
+    goto=next_node,
+  )
 
 
 class CarloAgent:
@@ -188,7 +205,8 @@ class CarloAgent:
         include_system=False,
       )
 
-      return {"messages": [response]}
+      assert isinstance(response, AIMessage)
+      return response_and_should_continue(response)
 
     except Exception as e:
       logger.error(f"Error in chatbot node: {e}", exc_info=True)
@@ -253,13 +271,13 @@ class CarloAgent:
 
     # Add edges
     graph_builder.add_edge(START, "agent")
-    graph_builder.add_conditional_edges(
-      "agent", should_continue, {"continue": "tools", "end": END}
-    )
+    # graph_builder.add_conditional_edges(
+    #   "agent", should_continue, {"continue": "tools", "end": END}
+    # )
     graph_builder.add_edge("tools", "agent_after_tools")
-    graph_builder.add_conditional_edges(
-      "agent_after_tools", should_continue, {"continue": "tools", "end": END}
-    )
+    # graph_builder.add_conditional_edges(
+    #   "agent_after_tools", should_continue, {"continue": "tools", "end": END}
+    # )
 
     # Compile with checkpointer for persistence
     memory = MemorySaver()
