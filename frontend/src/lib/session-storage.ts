@@ -3,7 +3,21 @@
  * Manages chat session ID persistence in browser storage
  */
 
-const SESSION_KEY = 'carlo_session_id'
+const SESSION_KEY = "carlo_session_id";
+
+/**
+ * Check if localStorage is available
+ */
+function isLocalStorageAvailable(): boolean {
+  try {
+    // deno-lint-ignore no-window
+    return typeof window !== "undefined" && window.localStorage !== null &&
+      // deno-lint-ignore no-window
+      window.localStorage !== undefined;
+  } catch {
+    return false;
+  }
+}
 
 export const sessionStorage = {
   /**
@@ -11,10 +25,14 @@ export const sessionStorage = {
    */
   getSessionId(): string | null {
     try {
-      return localStorage.getItem(SESSION_KEY)
+      if (!isLocalStorageAvailable()) {
+        console.warn("localStorage is not available, session will not persist");
+        return null;
+      }
+      return localStorage.getItem(SESSION_KEY);
     } catch (error) {
-      console.error('Failed to get session ID:', error)
-      return null
+      console.error("Failed to get session ID:", error);
+      return null;
     }
   },
 
@@ -23,9 +41,13 @@ export const sessionStorage = {
    */
   setSessionId(sessionId: string): void {
     try {
-      localStorage.setItem(SESSION_KEY, sessionId)
+      if (!isLocalStorageAvailable()) {
+        console.warn("localStorage is not available, session will not persist");
+        return;
+      }
+      localStorage.setItem(SESSION_KEY, sessionId);
     } catch (error) {
-      console.error('Failed to save session ID:', error)
+      console.error("Failed to save session ID:", error);
     }
   },
 
@@ -34,9 +56,13 @@ export const sessionStorage = {
    */
   clearSessionId(): void {
     try {
-      localStorage.removeItem(SESSION_KEY)
+      if (!isLocalStorageAvailable()) {
+        console.warn("localStorage is not available");
+        return;
+      }
+      localStorage.removeItem(SESSION_KEY);
     } catch (error) {
-      console.error('Failed to clear session ID:', error)
+      console.error("Failed to clear session ID:", error);
     }
   },
-}
+};

@@ -123,7 +123,7 @@ def main():
   create_window()
 
   logger.info("Starting pywebview...")
-  webview.start(debug=True)
+  webview.start(debug=True, private_mode=False, storage_path="~/.carlo")
 
   logger.info("Carlo AI Assistant closed. Exiting...")
   # Force exit to ensure daemon threads are killed
