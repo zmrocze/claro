@@ -2,7 +2,6 @@
 LangGraph agent implementation with Zep memory integration
 """
 
-import itertools
 import logging
 import os
 import uuid
@@ -20,7 +19,8 @@ from langchain_core.messages import (
 )
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import START, StateGraph
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import REMOVE_ALL_MESSAGES, RemoveMessage
 from langgraph.prebuilt import ToolNode
 from langgraph.types import Command
 from pydantic import SecretStr
@@ -84,17 +84,21 @@ def create_grok_llm(tools: list) -> Runnable[LanguageModelInput, BaseMessage]:
 
 def create_mock_llm(tools: list) -> Runnable[LanguageModelInput, BaseMessage]:
   """Create mock LLM instance with tools (for testing)"""
-  return GenericFakeChatModel(
-    messages=itertools.cycle([AIMessage(content="Mock response")])
-  )
+
+  # Use a generator to create NEW message instances on each call
+  # This ensures each message gets a unique ID (important for add_messages reducer)
+  def mock_response_generator():
+    while True:
+      yield AIMessage(content="Mock response")
+
+  return GenericFakeChatModel(messages=iter(mock_response_generator()))
 
 
 def response_and_should_continue(response: AIMessage) -> Command:
   if not response.tool_calls:
-    next_node = "end"
-  # Otherwise continue to tools
+    next_node = END
   else:
-    next_node = "agent_after_tools"
+    next_node = "tools"
 
   return Command(
     update={"messages": [response]},
@@ -166,62 +170,58 @@ class CarloAgent:
 
     logger.info(f"Claro agent initialized for user {user_id}")
 
-  # Define the chatbot node
-  async def chatbot_node(self, state: AgentState, system_content: Callable[[str], str]):
-    """Main chatbot logic with memory integration"""
-    try:
-      context = self.memory.get_context(thread_id=self.thread_id, mode="basic")
-      if context is None:
-        context = ""
-
-      system_message = SystemMessage(content=system_content(context))
-      messages = [system_message] + state["messages"]
-
-      response = await self.llm.ainvoke(messages)
-
-      # Add assistant response
-      try:
-        self.memory.add_message(
-          content=response.content
-          if isinstance(response.content, str)
-          else str(response.content),
-          role="assistant",
-          name="Claro",
-          thread_id=self.thread_id,
-        )
-        logger.debug(f"Added messages to thread {self.thread_id}")
-      except Exception as e:
-        logger.warning(f"Failed to add assistant message to memory: {e}")
-
-      # Truncate message history to prevent unbounded growth
-      # Keep last 10 messages in state (Zep maintains full history)
-      state["messages"] = trim_messages(
-        state["messages"],
-        strategy="last",
-        token_counter=len,
-        max_tokens=10,
-        start_on="human",
-        end_on=("human", "tool"),
-        include_system=False,
-      )
-
-      assert isinstance(response, AIMessage)
-      return response_and_should_continue(response)
-
-    except Exception as e:
-      logger.error(f"Error in chatbot node: {e}", exc_info=True)
-      raise agent_error_from_exception(
-        e=e,
-        name="CHATBOT_NODE_ERROR",
-        context="Error processing your request in chatbot node",
-      )
-
   def _build_graph(self):
     """Build the LangGraph state graph"""
 
     # Define the chatbot node
+    async def chatbot_node(
+      self, state: AgentState, system_content: Callable[[str], str]
+    ):
+      """Main chatbot logic with memory integration"""
+      try:
+        context = self.memory.get_context(thread_id=self.thread_id, mode="basic")
+        if context is None:
+          context = ""
+
+        system_message = SystemMessage(content=system_content(context))
+        messages = [system_message] + state["messages"]
+
+        response = await self.llm.ainvoke(messages)
+
+        # Add assistant response
+        try:
+          self.memory.add_message(
+            content=response.content
+            if isinstance(response.content, str)
+            else str(response.content),
+            role="assistant",
+            name="Claro",
+            thread_id=self.thread_id,
+          )
+          logger.debug(f"Added messages to thread {self.thread_id}")
+        except Exception as e:
+          logger.warning(f"Failed to add assistant message to memory: {e}")
+
+        assert isinstance(response, AIMessage)
+        return response_and_should_continue(response)
+
+      except Exception as e:
+        logger.error(f"Error in chatbot node: {e}", exc_info=True)
+        raise agent_error_from_exception(
+          e=e,
+          name="CHATBOT_NODE_ERROR",
+          context="Error processing your request in chatbot node",
+        )
+
+    # Define the chatbot node
     async def chatbot_answer_user(state: AgentState):
       """Main chatbot logic with memory integration"""
+      logger.info(
+        f"Entering node 'agent' (chatbot_answer_user) - "
+        f"State: user_id={state.get('user_id')}, thread_id={state.get('thread_id')}, "
+        f"first_name={state.get('first_name')}, last_name={state.get('last_name')}, "
+        f"message_count={len(state.get('messages', []))}"
+      )
 
       user_message = state["messages"][-1]
 
@@ -237,47 +237,46 @@ class CarloAgent:
         logger.warning(f"Failed to add user message to memory: {e}")
 
       # Get response from LLM
-      return await self.chatbot_node(state, system_content_user)
+      return await chatbot_node(self, state, system_content_user)
 
     # Define the chatbot node
     async def chatbot_answer_tool(state: AgentState):
       """Main chatbot logic with memory integration"""
+
       # not adding tool responses to zep memory
 
       # Get response from LLM
-      return await self.chatbot_node(state, system_content_tool)
+      return await chatbot_node(self, state, system_content_tool)
 
-    # Define conditional edge logic
-    async def should_continue(state, config):
-      """Determine whether to continue to tools or end"""
-      messages = state["messages"]
-      last_message = messages[-1]
+    async def trim_msg_history(state: AgentState):
+      # Truncate message history to prevent unbounded growth
+      # Keep last 10 messages in state (Zep maintains full history)
+      trimmed_messages = trim_messages(
+        state["messages"],
+        strategy="last",
+        token_counter=len,
+        max_tokens=30,
+        start_on="human",
+        end_on=("human", "tool"),
+        include_system=False,
+      )
 
-      # If there are no tool calls, end
-      if not last_message.tool_calls:
-        return "end"
-      # Otherwise continue to tools
-      else:
-        return "continue"
+      return {"messages": [RemoveMessage(REMOVE_ALL_MESSAGES)] + trimmed_messages}
 
     # Build the graph
     graph_builder = StateGraph(AgentState)
 
-    # Add nodes
     tool_node = ToolNode(self.tools)
     graph_builder.add_node("agent", chatbot_answer_user)
     graph_builder.add_node("agent_after_tools", chatbot_answer_tool)
     graph_builder.add_node("tools", tool_node)
+    graph_builder.add_node("trim_msg_history", trim_msg_history)
 
     # Add edges
-    graph_builder.add_edge(START, "agent")
-    # graph_builder.add_conditional_edges(
-    #   "agent", should_continue, {"continue": "tools", "end": END}
-    # )
+    graph_builder.add_edge(START, "trim_msg_history")
+    graph_builder.add_edge("trim_msg_history", "agent")
+    # graph_builder.add_edge(START, "agent")
     graph_builder.add_edge("tools", "agent_after_tools")
-    # graph_builder.add_conditional_edges(
-    #   "agent_after_tools", should_continue, {"continue": "tools", "end": END}
-    # )
 
     # Compile with checkpointer for persistence
     memory = MemorySaver()
@@ -310,19 +309,20 @@ class CarloAgent:
       )
 
       # Extract the last message (agent's response)
+      # TODO: here extract last message or all up to human?
+      # TODO: maybe visualize tool calls etc
       if result and result.get("messages"):
         last_message = result["messages"][-1]
         if isinstance(last_message, AIMessage):
           return str(last_message.content)
 
-      raise agent_error_from_exception(
-        e=Exception("Agent failed to generate a response"),
+      raise AppError(
         name="NO_RESPONSE_GENERATED",
-        context="Agent invocation did not produce a valid response",
+        description=f"Agent invocation result invalid: {result}",
+        source="agent",
       )
 
     except Exception as e:
-      logger.error(f"Error invoking agent: {e}", exc_info=True)
       raise agent_error_from_exception(
         e=e,
         name="AGENT_INVOCATION_ERROR",
@@ -357,7 +357,6 @@ class CarloAgent:
         yield chunk
 
     except Exception as e:
-      logger.error(f"Error streaming from agent: {e}", exc_info=True)
       raise agent_error_from_exception(
         e=e,
         name="AGENT_STREAMING_ERROR",
