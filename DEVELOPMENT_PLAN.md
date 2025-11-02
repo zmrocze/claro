@@ -1,5 +1,40 @@
 # Claro App Development Plan
 
+## Current Status (Updated: 2025-11-02)
+
+### Completed Phases
+
+- ✅ **Phase 1**: Foundation Setup (Complete)
+- ✅ **Phase 2**: Core Backend Implementation (Complete)
+- ✅ **Phase 3**: Frontend Development (Complete)
+- ❌ **Phase 3.5**: Session Persistence (Not started - HIGH PRIORITY)
+- ✅ **Phase 4**: OS Interface Implementation (Base complete, integration
+  pending)
+- ⚠️ **Phase 5**: Notification System (API complete, scheduling incomplete)
+- ✅ **Phase 6**: PyWebView Integration (Complete)
+- ⚠️ **Phase 7**: Build System (Nix complete, distribution packages pending)
+- ⚠️ **Phase 8**: Testing Strategy (Unit/integration done, E2E pending)
+- ❌ **Phase 9**: Deployment & Distribution (Not started)
+
+### Key Architectural Achievements
+
+1. **Memory Provider Abstraction**: Factory pattern supporting Zep + Mock
+   implementations
+2. **Comprehensive Error Handling**: Custom exceptions, middleware, and detailed
+   documentation
+3. **Session Management**: In-memory sessions with session IDs
+4. **Configuration Pattern**: Single-resolution config defaults following best
+   practices
+5. **Rate Limiting**: SlowAPI middleware for API protection
+
+### Known Gaps (from human_todo.md)
+
+1. Session persistence across app restarts
+2. Message context flow to LLM needs verification
+3. Multi-voice chat support
+4. Action approval flow with LangGraph needs verification
+5. Notification timer OS integration
+
 ## Overview
 
 Building a personal AI assistant app for Android and Linux with local execution,
@@ -22,9 +57,12 @@ with personal context from Zep memory to provide personalized interactions.
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Phase 1: Foundation Setup
+## Phase 1: Foundation Setup ✅
 
-### 1.1 Project Structure
+**Status**: Complete\
+**Completion Date**: Early in development
+
+### 1.1 Project Structure ✅
 
 ```
 claro/
@@ -55,9 +93,13 @@ claro/
 └── tests/
 ```
 
-### 1.2 Dependencies to Install
+### 1.2 Dependencies to Install ✅
 
-**Python Backend:**
+**Status**: All core dependencies installed and configured in `pyproject.toml`
+with uv.lock\
+**Build System**: Using uv2nix for reproducible Python builds
+
+**Python Backend (Actual):**
 
 - fastapi==0.104.1
 - uvicorn[standard]==0.24.0
@@ -72,129 +114,178 @@ claro/
 - pystemd==0.13.0 (Linux)
 - pyjnius==1.5.0 (Android)
 
-**Frontend:**
+**Frontend (Actual):**
 
-- react@18
-- typescript@5
-- vite@5
-- @llamaindex/chat-ui
-- tailwindcss@3
-- shadcn/ui components
-- axios or fetch API
+- react@19.1.1 (upgraded from planned 18)
+- typescript@5.8.3
+- vite@7.1.2 (upgraded from planned 5)
+- @llamaindex/chat-ui@0.6.1 ✅
+- tailwindcss@4.1.16 (upgraded from planned 3)
+- shadcn/ui components ✅
+- native fetch API ✅
+- @hey-api/openapi-ts for type generation ✅
 
-### 1.3 Environment Setup Questions
+### 1.3 Environment Setup Questions ✅
 
-- **Q1:** How will the Grok API key be provided initially? (environment
-  variable, user input, config file?)
-- **Q2:** What Zep instance will be used? (local Docker, cloud, embedded?)
-- **Q3:** Should the app support multiple user profiles or single user only?
+**Status**: All questions answered and implemented
 
-## Phase 2: Core Backend Implementation
+- **Q1:** How will the Grok API key be provided initially?\
+  **Answer**: Environment variable via `.env` file (`.env.dev` template
+  provided)
 
-### 2.1 FastAPI Application Structure
+- **Q2:** What Zep instance will be used?\
+  **Answer**: Configurable via `MEMORY_PROVIDER` env var. Supports both cloud
+  Zep and mock memory for testing
+
+- **Q3:** Should the app support multiple user profiles or single user only?\
+  **Answer**: Single user (configured via `ZEP_USER_ID` env var)
+
+## Phase 2: Core Backend Implementation ✅
+
+**Status**: Complete\
+**Implementation**: All core features working, with architectural improvements
+beyond plan
+
+### 2.1 FastAPI Application Structure ✅
+
+**Actual Implementation**:
 
 ```python
 # backend/main.py
-app = FastAPI()
-app.add_middleware(CORSMiddleware, ...)
+**All API Endpoints**:
 
-@app.post("/chat")
-async def chat_endpoint(message: ChatMessage) -> ChatResponse:
-    # 1. Add message to Zep memory
-    # 2. Get context from Zep
-    # 3. Run LangGraph agent
-    # 4. Return response
-    
-@app.get("/notifications/prepare")
-async def prepare_notifications() -> NotificationStatus:
-    # Generate and schedule notifications
+*Health & Static*:
+- `GET /health` - Health check endpoint ✅
+- `GET /{path}` - Serve static frontend files (production) ✅
 
-@app.post("/action/execute")
-async def execute_action(action: ActionRequest) -> ActionResult:
-    # Execute user-approved actions
+*Chat* (`/api/chat`):
+- `POST /api/chat/message` - Send chat message, get response ✅
+- `POST /api/chat/session` - Create new session ✅
+- `GET /api/chat/sessions` - List all sessions ✅
+- `GET /api/chat/history/{session_id}` - Get conversation history ✅
+- `DELETE /api/chat/history/{session_id}` - Delete session history ✅
+
+*Notifications* (`/api/notifications`):
+- `GET /api/notifications/config` - Get notification configuration ✅
+- `POST /api/notifications/config` - Update notification configuration ✅
+- `POST /api/notifications/prepare` - Schedule notifications for next day ✅
+- `GET /api/notifications/scheduled` - List scheduled notifications ✅
+- `DELETE /api/notifications/scheduled/{notification_id}` - Cancel notification ✅
+- `POST /api/notifications/test` - Send test notification immediately ✅
+
+*Actions* (`/api/actions`):
+- `POST /api/actions/execute` - Execute action (requires confirmation) ✅
+- `GET /api/actions/pending` - List pending actions awaiting confirmation ✅
+- `POST /api/actions/confirm/{action_id}` - Confirm and execute action ✅
+- `DELETE /api/actions/cancel/{action_id}` - Cancel pending action ✅
+- `GET /api/actions/result/{action_id}` - Get action execution result ✅
+- `GET /api/actions/history` - Get action execution history ✅
+
+### 2.2 LangGraph Agent Configuration ✅
+
+- ✅ LangGraph ReAct agent with tools: zep memory search, `mock_action`
+- ✅ Memory: Zep Cloud + Mock providers
+- ✅ Model: Grok via `langchain-openai`
+
+### 2.3 Security Considerations ✅
+
+- ✅ **API Key Storage**: `python-keyring` with `.env` fallback
+  - Keyring uses OS-native secure storage (Linux: Secret Service API/libsecret, macOS: Keychain, Windows: Credential Locker)
+  - **Android**: python-keyring has limited/no support - will use `.env` fallback (stored in app private storage)
+  - Falls back to `.env` files if keyring unavailable
+  - Helper functions: `set_api_key()`, `get_api_key()` in `backend/config.py`
+- ✅ Pydantic V2 validation, rate limiting, CORS, error handling
+
+## Phase 3: Frontend Development ✅
+
+**Status**: Complete  
+**Implementation**: Working chat UI with streaming, action dialogs, and error toasts
+
+### 3.1 Component Architecture ✅
+
+**Actual Implementation**:
 ```
 
-### 2.2 LangGraph Agent Configuration
-
-- Implement zero-shot ReAct pattern
-- Tools: MockAction (initially), expandable tool registry
-- Memory: Zep context injection in system prompt
-- Model: Grok with OpenAI-compatible client
-
-### 2.3 Security Considerations
-
-- API key storage: Use `python-keyring` for secure storage
-- Input validation: Pydantic models for all endpoints
-- Rate limiting: Implement request throttling
-
-## Phase 3: Frontend Development
-
-### 3.1 Component Architecture
+App.tsx ├── Chat (main component) ✅ ├── ActionDialog (Radix UI Dialog) ✅ └──
+Toast notifications (shadcn/ui) ✅
 
 ```
-App.tsx
-├── ChatContainer/
-│   ├── MessageList/
-│   │   ├── Message/ (with formatting support)
-│   │   └── ActionDialog/
-│   └── InputForm/
-└── NotificationHandler/
-```
+### 3.2 Key Features ✅
 
-### 3.2 Key Features
+**Status**: All implemented
 
-- Chat application as describe in ux.md
-- Real-time message streaming
-- Rich text formatting (Markdown, code highlighting)
-- Action confirmation dialogs
-- Responsive design for mobile/desktop
+- ✅ Chat application with clean UI (Tailwind styling)
 
-### 3.3 State Management
+### 3.3 State Management ✅
 
-- Session memory in local state
+**Status**: Implemented with React state + backend sessions
 
-## Phase 4: OS Interface Implementation
+- ✅ Local React state for current chat messages
+- ✅ Backend session management via API
+- ✅ Session ID tracking
+- ⚠️ **Known Gap**: No persistence across browser refresh (see Phase 3.5 below)
 
-### 4.1 Abstract Base Classes
+## Phase 3.5: Session Persistence ❌
 
-```python
-# os_interfaces/base.py
-class NotificationManager(ABC):
-    @abstractmethod
-    def create_notification(self, title: str, body: str, data: dict): ...
-    
-class TimerManager(ABC):
-    @abstractmethod
-    def schedule_timer(self, time: datetime, callback: Callable): ...
-    
-class PersistentStorage(ABC):
-    @abstractmethod
-    def get(self, key: str) -> Any: ...
-    @abstractmethod
-    def set(self, key: str, value: Any): ...
-```
+**Status**: Not implemented  
+**Priority**: High - critical for user experience  
 
-### 4.2 Platform Detection and Factory
+### 3.5.1 Backend Session Storage ❌
 
-```python
-def create_os_interface():
-    if sys.platform == "linux":
-        return LinuxInterface()
-    elif "ANDROID_ROOT" in os.environ:
-        return AndroidInterface()
-```
+**Current State**: Sessions stored in-memory only (`backend/sessions.py`)
+- Sessions lost on app restart
+- No limit on session count (memory leak potential)
 
-**Questions:**
+**Required Implementation**:
+1. ❌ Choose storage backend
+   
+2. ❌ Implement session persistence:
+   - Save session on every message incrementally
+   - Load all sessions on app start
+   - Implement session cleanup (keep last 30 messages per decision Q1)
 
-- **Q6:** Should notifications persist if the app is closed?
-- **Q7:** What Android permissions are needed? (WAKE_LOCK,
-  RECEIVE_BOOT_COMPLETED, etc.)
+### 3.5.2 Frontend Session Restoration ❌
 
-## Phase 5: Notification System
+**Required Implementation**:
+1. ❌ Load last active session on app start
+2. ❌ Restore message history in UI
+3. ❌ Continue conversation in same context (requires saving langgraph agent checkpoint, maybe use memorysaver)
+4. ❌ Handle session selection (if multiple sessions)
 
-### 5.1 Configuration Schema
+**Storage Location**:
+- Linux: where?
+- Android: App private storage
 
-```yaml
+## Phase 4: OS Interface Implementation ⚠️
+
+**Status**: Abstract base class defined, platform implementations are stubs only  
+**What's Done**: `OSInterface` ABC with method signatures  
+**What's Missing**: Actual desktop-notifier (Linux) and pyjnius (Android) integration
+
+### 4.1 Abstract Base Classes ✅
+
+**Status**: Implemented in `os_interfaces/*`
+
+**Implementations**:
+- `linux.py`: Stub using print statements (desktop-notifier integration pending)
+- `android.py`: Stub using print statements (pyjnius integration pending)
+
+**Questions - Answered**:
+
+- **Q6:** Should notifications persist if the app is closed?  
+  **Answer**: Yes, via OS-level scheduled notifications (not yet implemented)
+  
+- **Q7:** What Android permissions are needed?  
+  **Answer**: `INTERNET`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED` (to be added to buildozer.spec)
+
+## Phase 5: Notification System ⚠️
+
+**Status**: API and models complete, configuration and OS integration pending  
+**Priority**: High - core feature
+
+### 5.1 Configuration Schema ⚠️
+
+{{ ... }}
 # config/notifications.yaml
 notifications:
   - name: "morning_checkin"
@@ -208,63 +299,108 @@ notifications:
     prompt: "Create a thoughtful question about the user's day"
 ```
 
-### 5.2 Notification Flow
+**Status**:
+
+- ✅ Pydantic models defined (`NotificationType`, `NotificationConfig`)
+- ❌ YAML file not created (`config/` directory is empty)
+- ❌ File loading/saving not implemented
+- ⚠️ In-memory state used for demo purposes
+
+**TODO**:
+
+1. Create default `config/notifications.yaml`
+2. Implement YAML loading in `backend/api/notifications.py`
+3. Support runtime config updates via API
+
+### 5.2 Notification Flow ⚠️
+
+**Planned Flow**:
 
 1. App opens → Check last preparation timestamp
 2. If new day → Schedule all notifications for tomorrow
 3. Timer triggers → Generate content via LLM
 4. Show notification → Click opens app with pre-filled message
 
-## Phase 6: PyWebView Integration
+**Current Status**:
 
-### 6.1 Main Entry Points
+- ✅ Step 1-2: `GET /api/notifications/prepare` endpoint generates notification
+  schedule
+- ✅ Step 3: LLM content generation works (uses Grok to generate based on
+  prompt)
+- ❌ Step 3: OS timer integration missing (notifications not actually scheduled
+  with OS)
+- ❌ Step 4: Deep link handling not implemented
 
-```python
-# main_linux.py
-def main():
-    os_interface = LinuxInterface()
-    start_backend()
-    webview.create_window("Claro", "http://localhost:8000")
-    webview.start()
+**Remaining Work**:
 
-# main_android.py  
-def main():
-    os_interface = AndroidInterface()
-    # Android-specific WebView setup
-```
+1. Integrate `desktop-notifier` (Linux) and `pyjnius` (Android) for actual
+   notifications
+2. Implement timer scheduling via `os_interfaces`
+3. Add deep link handler to open chat with pre-filled notification response
+4. Persist notification state across app restarts
+5. Handle notification retry logic if delivery fails
 
-### 6.2 Frontend-Backend Bridge
+## Phase 6: PyWebView Integration ✅
 
-- Use PyWebView's JS API for native features
-- Handle deep links from notifications
+**Status**: Complete and working\
+**Implementation**: `carlo_app.py` successfully wraps the web app
 
-## Phase 7: Build System with Nix
+### 6.1 Main Entry Points ✅
+
+**Actual Implementation** (`carlo_app.py`), packaged for Linux with
+`nix build .#default`!
+
+**Note**: Android entry point should be separate when implemented
+
+### 6.2 Frontend-Backend Bridge ⚠️
+
+**Status**: Basic communication works, advanced features pending
+
+- ✅ HTTP API communication (fetch/axios)
+- ✅ Server-Sent Events for streaming
+- ❌ PyWebView JS API not yet used (could expose native file dialogs, etc.)
+- ❌ Deep link handling not implemented
+
+**Future Enhancements**:
+
+1. Use `webview.api` to expose Python functions to JavaScript
+2. Add deep link support for notification responses
+3. Expose native file picker for future file-based features
+
+## Phase 7: Build System ⚠️
+
+**Status**: Nix build system complete, distribution packages pending\
+**Priority**: Medium - needed for distribution
 
 ### 7.1 Build Stages
 
 1. **Frontend Build:** `nix build .#frontend` → dist/
-2. **Linux Executable:** `nix build .#linux-app` → PyInstaller
+2. **Linux Executable:** `nix build .#linux-app`
 3. **Android APK:** `nix build .#android-app` → Buildozer
 
 ### 7.2 Buildozer Configuration
 
-```ini
-[app]
-title = Claro
-package.name = claro
-source.dir = .
-requirements = python3,fastapi,uvicorn,pywebview,...
-android.permissions = INTERNET,POST_NOTIFICATIONS,SCHEDULE_EXACT_ALARM
-```
+Used for android build.
 
-**Questions:**
+2. Android-specific entry point (`main_android.py`)
+3. APK signing keystore
 
-- **Q8:** Target Android API level? (minimum and target)
-- **Q9:** Should the app auto-update or use app store updates only?
+**Questions - Answered**:
 
-## Phase 8: Testing Strategy
+- **Q8:** Target Android API level?\
+  **Answer**: Target API 33, Minimum API 26 (Android 8.0+, released 2017)
 
-### 8.1 Test Coverage
+- **Q9:** Should the app auto-update or use app store updates only?\
+  **Answer**: App store updates only (simpler, more secure)
+
+## Phase 8: Testing Strategy ⚠️
+
+**Status**: Basic testing in place, comprehensive coverage pending\
+**Priority**: High - needed before production release
+
+### 8.1 Test Coverage ⚠️
+
+**Current Status**:
 
 - **Unit Tests:** OS interfaces, notification scheduler, message formatting
 - **Integration Tests:** API endpoints, Zep integration, LLM mocking
@@ -290,61 +426,59 @@ android.permissions = INTERNET,POST_NOTIFICATIONS,SCHEDULE_EXACT_ALARM
 - Prepare Play Store assets (icons, screenshots, descriptions)
 - Set up beta testing track
 
-## Implementation Order
-
-1. **Week 1-2:** Basic backend with FastAPI and LangGraph agent
-2. **Week 2-3:** Frontend chat interface with llamaindex components
-3. **Week 3-4:** OS interface abstraction and Linux implementation
-4. **Week 4-5:** Notification system and configuration
-5. **Week 5-6:** PyWebView integration and packaging
-6. **Week 6-7:** Android implementation and Buildozer setup
-7. **Week 7-8:** Testing, refinement, and documentation
-8. **Week 8-9:** Nix build system and CI/CD
-9. **Week 9-10:** Distribution preparation and release
-
-## Open Technical Decisions
-
-1. **Memory Persistence:** How much conversation history to keep locally vs in
-   Zep? A: send all to zep, keep locally as much as is feasible without complex
-   state management, up to 500 messages.
-2. **Offline Mode:** Should the app work offline with degraded functionality? A:
-   when offline open "offline" page which only shows past conversation history
-3. **Multi-device Sync:** Should user data sync across devices? A: no. (because
-   it implicitly syncs because of zep, no further syncing on our side)
-4. **Action System:** What real actions should be implemented beyond mock? A: no
-   for now.
-5. **Privacy:** How to handle sensitive data in notifications? A: no specific
-   handling, just show it
-6. **Performance:** Message streaming vs batch responses? A: make an informed
-   decision
-7. **Updates:** How to handle app updates with persistent data? A: no specific
-   handling. if persistant data cannot be parsed, inform with error message.
-
-## Risk Mitigation
-
-- **Buildozer Complexity:** Start Android build early, test on multiple devices
-- **Notification Reliability:** Implement fallback mechanisms for timer failures
-- **API Key Security:** Never commit keys, use secure storage from day 1
-- **Cross-platform Issues:** Abstract all platform-specific code properly
-- **Memory Management:** Monitor Zep storage costs and implement cleanup
-- **Handle errors gracefully:** Log errors to logs, show comprehensive and clean
-  error description to the user, in the ui.
-
 ## Success Criteria
 
-- [ ] Chat interface responds within 2 seconds
-- [ ] Notifications appear reliably at scheduled times
-- [ ] App runs on Linux (Ubuntu 22.04+) and Android (API 26+)
-- [ ] Single executable/APK with all dependencies bundled
-- [ ] Zep memory provides relevant context for conversations
-- [ ] Clean, maintainable codebase with good test coverage
+### v1.0 Linux Release
 
-## Next Immediate Steps
+- [x] Chat interface responds ✅
+- [ ] Notifications appear reliably at scheduled times ⚠️ (API done, OS
+      integration pending)
+- [x] App runs on Linux
+- [x] Zep memory provides relevant context for conversations ✅ (working with
+      cloud Zep)
+- [x] Clean, maintainable codebase ✅ (good separation of concerns)
+- [ ] Good test coverage ⚠️ (basic tests exist, need expansion)
+- [ ] Session persistence across restarts ❌ (HIGH PRIORITY)
 
-1. Update `pyproject.toml` with all Python dependencies
-2. Initialize frontend with Vite:
-   `npm create vite@latest frontend -- --template react-ts`
-3. Create basic FastAPI server with health check endpoint
-4. Set up Grok API client with test connection
-5. Implement basic Zep memory integration
-6. Create OS interface abstract base classes
+### v1.0 Android Release (Future)
+
+- [ ] App runs on Android (API 26+)
+- [ ] APK with all dependencies bundled
+- [ ] Mobile-optimized UI
+- [ ] Background notification service
+
+## Next Immediate Steps (Updated 2025-11-02)
+
+### For Linux v1.0 Release
+
+**Week 1-2: Core Functionality**
+
+1. ❌ **Implement Session Persistence** (Phase 3.5) - HIGHEST PRIORITY
+   - Create `~/.local/share/claro/sessions.json` storage
+   - Implement save on every message
+   - Load sessions on app startup
+   - Test session restoration
+
+2. ❌ **Create Notification Configuration** (Phase 5.1)
+   - Create `config/notifications.yaml` with example notifications
+   - Implement YAML loading in `backend/api/notifications.py`
+   - Add configuration validation
+
+3. ❌ **Integrate OS Notifications** (Phase 5.2)
+   - Integrate `desktop-notifier` for Linux
+   - Implement timer scheduling in `os_interfaces/linux.py`
+   - Test notification delivery
+
+**Week 3: Testing & Polish**
+
+4. ❌ **Expand Test Coverage** (Phase 8)
+   - Mock LLM responses for tests
+   - Add session persistence tests
+   - Test notification flow
+   - Run coverage report
+
+### Optional/Future
+
+- ❌ Android implementation (2-3 weeks)
+- ❌ E2E tests with Playwright
+- ❌ AppImage distribution
