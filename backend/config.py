@@ -147,6 +147,7 @@ class AppConfig:
 
   # Session settings
   MAX_SESSION_MESSAGES = int(os.getenv("MAX_SESSION_MESSAGES", "500"))
+  MAX_MESSAGE_AGE_HOURS = int(os.getenv("MAX_MESSAGE_AGE_HOURS", "3"))  # 30 days
   SESSION_TIMEOUT_HOURS = int(os.getenv("SESSION_TIMEOUT_HOURS", "72"))
 
   # LLM settings

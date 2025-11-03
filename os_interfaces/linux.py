@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import pickle
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -10,11 +9,11 @@ from typing import Any, Callable, Optional
 
 import yaml
 from desktop_notifier import DesktopNotifier
-from platformdirs import user_config_dir, user_data_dir
+from platformdirs import user_config_dir
 from pystemd.dbuslib import DBus
 from pystemd.systemd1 import Manager
 
-from .base import ConfigStorage, NotificationManager, PersistentStorage, TimerManager
+from .base import ConfigStorage, NotificationManager, TimerManager
 
 logger = logging.getLogger(__name__)
 
@@ -151,54 +150,6 @@ class LinuxTimerManager(TimerManager):
 
     except Exception as e:
       logger.error(f"Failed to cancel timer: {e}")
-
-
-class LinuxPersistentStorage(PersistentStorage):
-  """Linux persistent storage using pickle files in user data directory"""
-
-  def __init__(self, app_name: str, storage_name: str):
-    self.storage_dir = Path(user_data_dir(app_name, ensure_exists=True))
-    self.storage_file = self.storage_dir / f"{storage_name}.pkl"
-    self._cache: dict[str, Any] = {}
-    self._load_cache()
-
-  def _load_cache(self) -> None:
-    """Load storage cache from disk"""
-    if self.storage_file.exists():
-      try:
-        with open(self.storage_file, "rb") as f:
-          self._cache = pickle.load(f)
-        logger.debug(f"Loaded storage from {self.storage_file}")
-      except Exception as e:
-        logger.error(f"Failed to load storage: {e}")
-        self._cache = {}
-    else:
-      self._cache = {}
-
-  def _save_cache(self) -> None:
-    """Save storage cache to disk"""
-    try:
-      self.storage_dir.mkdir(parents=True, exist_ok=True)
-      with open(self.storage_file, "wb") as f:
-        pickle.dump(self._cache, f)
-      logger.debug(f"Saved storage to {self.storage_file}")
-    except Exception as e:
-      logger.error(f"Failed to save storage: {e}")
-
-  def get(self, key: str) -> Any:
-    """Retrieve a value from persistent storage"""
-    return self._cache.get(key)
-
-  def set(self, key: str, value: Any) -> None:
-    """Store a value in persistent storage"""
-    self._cache[key] = value
-    self._save_cache()
-
-  def delete(self, key: str) -> None:
-    """Delete a value from persistent storage"""
-    if key in self._cache:
-      del self._cache[key]
-      self._save_cache()
 
 
 class LinuxConfigStorage(ConfigStorage):

@@ -6,11 +6,10 @@ import the appropriate implementation directly in the main entry points:
 - main_android.py will import from os_interfaces.android
 """
 
-from .base import ConfigStorage, NotificationManager, PersistentStorage, TimerManager
+from .base import ConfigStorage, NotificationManager, TimerManager
 
 __all__ = [
   "NotificationManager",
   "TimerManager",
-  "PersistentStorage",
   "ConfigStorage",
 ]

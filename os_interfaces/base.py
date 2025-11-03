@@ -51,25 +51,6 @@ class TimerManager(ABC):
     raise NotImplementedError
 
 
-class PersistentStorage(ABC):
-  """Abstract base class for persistent storage"""
-
-  @abstractmethod
-  def get(self, key: str) -> Any:
-    """Retrieve a value from persistent storage"""
-    raise NotImplementedError
-
-  @abstractmethod
-  def set(self, key: str, value: Any) -> None:
-    """Store a value in persistent storage"""
-    raise NotImplementedError
-
-  @abstractmethod
-  def delete(self, key: str) -> None:
-    """Delete a value from persistent storage"""
-    raise NotImplementedError
-
-
 class ConfigStorage(ABC):
   """Abstract base class for configuration file storage"""
 
