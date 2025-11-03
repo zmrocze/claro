@@ -13,12 +13,10 @@ class AndroidNotificationManager(NotificationManager):
     # TODO: Initialize PyJNIus notification manager
     pass
 
-  def create_notification(self, title: str, body: str, data: dict) -> None:
+  def create_notification(
+    self, title: str, body: str, on_clicked: Optional[Callable] = None
+  ) -> None:
     # TODO: Implement using PyJNIus NotificationManager
-    pass
-
-  def cancel_notification(self, notification_id: str) -> None:
-    # TODO: Implement notification cancellation
     pass
 
 
@@ -30,9 +28,9 @@ class AndroidTimerManager(TimerManager):
     pass
 
   def schedule_timer(
-    self, time: datetime, callback: Callable, data: Optional[dict] = None
+    self, time: datetime, command: str, args: Optional[list[str]] = None
   ) -> str:
-    # TODO: Implement using AlarmManager
+    # TODO: Implement using AlarmManager to run command
     return "android-timer-id-1"
 
   def cancel_timer(self, timer_id: str) -> None:
@@ -41,7 +39,7 @@ class AndroidTimerManager(TimerManager):
 
 
 class AndroidPersistentStorage(PersistentStorage):
-  """Android persistent storage using SharedPreferences"""
+  """Android persistent storage"""
 
   def __init__(self):
     # TODO: Initialize SharedPreferences via PyJNIus
