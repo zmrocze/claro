@@ -9,8 +9,12 @@ class NotificationManager(ABC):
   """Abstract base class for notification management"""
 
   @abstractmethod
-  def create_notification(
-    self, title: str, body: str, on_clicked: Optional[Callable] = None
+  async def create_notification(
+    self,
+    title: str,
+    body: str,
+    on_clicked: Optional[Callable] = None,
+    on_dismissed: Optional[Callable] = None,
   ) -> None:
     """Create and show a notification
 
@@ -18,6 +22,7 @@ class NotificationManager(ABC):
       title: Notification title
       body: Notification body text
       on_clicked: Optional callback when notification is clicked
+      on_dismissed: Optional callback when notification is dismissed
     """
     raise NotImplementedError
 

@@ -1,6 +1,5 @@
 """Linux-specific implementations of OS interfaces"""
 
-import asyncio
 import logging
 import uuid
 from datetime import datetime
@@ -24,8 +23,12 @@ class LinuxNotificationManager(NotificationManager):
   def __init__(self, app_name: str):
     self.notifier = DesktopNotifier(app_name=app_name)
 
-  def create_notification(
-    self, title: str, body: str, on_clicked: Optional[Callable] = None
+  async def create_notification(
+    self,
+    title: str,
+    body: str,
+    on_clicked: Optional[Callable] = None,
+    on_dismissed: Optional[Callable] = None,
   ) -> None:
     """Create and show a notification using desktop-notifier
 
@@ -33,21 +36,13 @@ class LinuxNotificationManager(NotificationManager):
       title: Notification title
       body: Notification body text
       on_clicked: Optional callback when notification is clicked
+      on_dismissed: Optional callback when notification is dismissed
     """
     try:
-      # Prepare notification coroutine
-      notification_coro = self.notifier.send(
-        title=title, message=body, on_clicked=on_clicked
+      # Send notification directly (we're already in an async context)
+      await self.notifier.send(
+        title=title, message=body, on_clicked=on_clicked, on_dismissed=on_dismissed
       )
-
-      # Run async notification in event loop
-      loop = asyncio.get_event_loop()
-      if loop.is_running():
-        # If loop is running, schedule as task
-        asyncio.create_task(notification_coro)
-      else:
-        # If no loop, run synchronously
-        loop.run_until_complete(notification_coro)
       logger.info(f"Notification sent: {title}")
     except Exception as e:
       logger.error(f"Failed to send notification: {e}")

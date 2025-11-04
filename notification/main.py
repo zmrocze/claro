@@ -58,11 +58,12 @@ async def get_carlo_response(prompt: str) -> str:
     return f"Error: {str(e)}"
 
 
-def create_notification(response_text: str) -> None:
+async def create_notification(response_text: str, done_event: asyncio.Event) -> None:
   """Create a system notification with the response text.
 
   Args:
       response_text: Text to display in the notification
+      done_event: Event to signal when notification is clicked or dismissed
   """
   notifier = LinuxNotificationManager(app_name="Carlo")
 
@@ -72,8 +73,18 @@ def create_notification(response_text: str) -> None:
   if len(response_text) > max_length:
     display_text += "..."
 
-  notifier.create_notification(
-    title="Carlo", body=display_text, on_clicked=open_app_on_click
+  def on_clicked():
+    """Handle notification click."""
+    open_app_on_click()
+    done_event.set()
+
+  def on_dismissed():
+    """Handle notification dismissal."""
+    logger.info("Notification dismissed")
+    done_event.set()
+
+  await notifier.create_notification(
+    title="Carlo", body=display_text, on_clicked=on_clicked, on_dismissed=on_dismissed
   )
   logger.info("Notification created successfully")
 
@@ -96,8 +107,16 @@ async def main(prompt: Optional[str] = None) -> None:
   response = await get_carlo_response(prompt)
   logger.info(f"Got response: {response[:100]}...")
 
+  # Create event to signal when notification is interacted with
+  done_event = asyncio.Event()
+
   # Create notification with response
-  create_notification(response)
+  await create_notification(response, done_event)
+
+  # Wait for user to click or dismiss the notification
+  logger.info("Waiting for notification interaction...")
+  await done_event.wait()
+  logger.info("Notification interaction complete, exiting")
 
 
 if __name__ == "__main__":

@@ -13,8 +13,12 @@ class AndroidNotificationManager(NotificationManager):
     # TODO: Initialize PyJNIus notification manager
     pass
 
-  def create_notification(
-    self, title: str, body: str, on_clicked: Optional[Callable] = None
+  async def create_notification(
+    self,
+    title: str,
+    body: str,
+    on_clicked: Optional[Callable] = None,
+    on_dismissed: Optional[Callable] = None,
   ) -> None:
     # TODO: Implement using PyJNIus NotificationManager
     pass
