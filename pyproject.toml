@@ -21,6 +21,8 @@ dependencies = [
   "asgi-correlation-id",
   "slowapi",
   "platformdirs",
+  "gitpython",
+  "unidiff",
 ]
 
 [project.optional-dependencies]

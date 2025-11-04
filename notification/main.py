@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Entrypoint for creating notifications with Carlo agent responses.
 

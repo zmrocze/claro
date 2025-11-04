@@ -144,6 +144,12 @@
             inherit pythonSet workspace;
             python3 = python;
           };
+          
+          # Build git-remember-hook
+          git-remember-hook = pkgs.callPackage ./remember {
+            inherit pythonSet workspace;
+            python3 = python;
+          };
         in
     {
        # Package a virtual environment as our main application.
@@ -152,7 +158,7 @@
       packages = {
         # Main Claro desktop application
         default = claro;
-        inherit frontend backend claro notify-with-carlo;
+        inherit frontend backend claro notify-with-carlo git-remember-hook;
         
         # Legacy dev environment
         dev-env = pythonSet.mkVirtualEnv "claro-dev-env" workspace.deps.all;
