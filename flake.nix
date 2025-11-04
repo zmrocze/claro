@@ -67,21 +67,6 @@
           # Use Python 3.12 from nixpkgs
           python = pkgs.python312;
 
-          # Build frontend
-          frontend = pkgs.callPackage ./frontend { };
-          
-          # Build backend
-          backend = pkgs.callPackage ./backend {
-            inherit uv2nix pyproject-nix pyproject-build-systems;
-            python3 = python;
-          };
-          
-          # Build main Claro application
-          claro = pkgs.callPackage ./. {
-            inherit frontend backend;
-            python3 = python;
-          };
-
           # Legacy: Load a uv workspace from a workspace root.
           # Uv2nix treats all uv projects as workspace projects.
           workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
@@ -104,10 +89,26 @@
           # This is an additional overlay implementing build fixups.
           # See:
           # - https://pyproject-nix.github.io/uv2nix/FAQ.html
-          pyprojectOverrides = _final: _prev: {
+          pyprojectOverrides = final: prev: {
             # Implement build fixups here.
             # Note that uv2nix is _not_ using Nixpkgs buildPythonPackage.
             # It's using https://pyproject-nix.github.io/pyproject.nix/build.html
+            # proxy-tools is an old package (2014) that needs setuptools to build from sdist
+            # It doesn't declare its build system properly in uv.lock
+            proxy-tools = prev.proxy-tools.overrideAttrs (old: {
+              nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ final.setuptools ];
+              propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ [ final.setuptools ];
+            });
+
+             pystemd = prev.pystemd.overrideAttrs (old: {
+              nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ 
+                final.setuptools 
+                pkgs.pkg-config 
+              ];
+              buildInputs = (old.buildInputs or [ ]) ++ [ 
+                pkgs.systemd 
+              ];
+            });
           };
 
           # Construct package set
@@ -123,6 +124,26 @@
                   pyprojectOverrides
                 ]
               );
+
+          # Build frontend
+          frontend = pkgs.callPackage ./frontend { };
+          
+          # Build backend
+          backend = pkgs.callPackage ./backend {
+            inherit pythonSet workspace;
+          };
+          
+          # Build main Claro application
+          claro = pkgs.callPackage ./. {
+            inherit frontend backend;
+            python3 = python;
+          };
+          
+          # Build notification executable
+          notify-with-carlo = pkgs.callPackage ./notification {
+            inherit pythonSet workspace;
+            python3 = python;
+          };
         in
     {
        # Package a virtual environment as our main application.
@@ -131,10 +152,10 @@
       packages = {
         # Main Claro desktop application
         default = claro;
-        inherit frontend backend;
+        inherit frontend backend claro notify-with-carlo;
         
         # Legacy dev environment
-        dev-env = pythonSet.mkVirtualEnv "claro-dev-env" workspace.deps.default;
+        dev-env = pythonSet.mkVirtualEnv "claro-dev-env" workspace.deps.all;
       };
       
       # Application runner
