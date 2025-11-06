@@ -4,8 +4,8 @@ Uses unidiff types (PatchSet, PatchedFile, Hunk, Line) directly.
 Only adds commit metadata wrapper via CommitDiff.
 """
 
-from .diff_types import CommitDiff, NewChunk
-from .diff_parser import parse_commit_diff
+from .post_commit_hook.diff_types import CommitDiff, NewChunk
+from .post_commit_hook.diff_parser import parse_commit_diff
 
 __all__ = [
   "CommitDiff",

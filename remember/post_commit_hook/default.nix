@@ -20,10 +20,9 @@ stdenv.mkDerivation {
   nativeBuildInputs = [ makeWrapper ];
   
   src = lib.fileset.toSource {
-    root = ../.;
+    root = ../..;
     fileset = lib.fileset.unions [
-      ./main.py
-      ../remember
+      ./.
     ];
   };
   
@@ -34,10 +33,10 @@ stdenv.mkDerivation {
     mkdir -p $out/share/git-remember-hook
     
     # Copy the main script
-    cp $src/remember/main.py $out/share/git-remember-hook/
+    cp $src/remember/post_commit_hook/main.py $out/share/git-remember-hook/
     
-    # Copy remember package source code
-    cp -r $src/remember $out/share/git-remember-hook/
+    # Copy post_commit_hook package source code
+    cp -r $src/remember/post_commit_hook $out/share/git-remember-hook/
     
     # Create wrapper that uses Python environment
     makeWrapper ${pythonEnv}/bin/python $out/bin/git-remember-hook \

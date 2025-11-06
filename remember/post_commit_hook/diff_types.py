@@ -7,6 +7,8 @@ This module only adds commit metadata wrapper.
 from dataclasses import dataclass
 from pathlib import Path
 
+from llama_index.core.node_parser import SentenceSplitter
+from llama_index.core.schema import Document
 from unidiff import PatchSet
 
 
@@ -98,8 +100,39 @@ class CommitDiff:
           added_text = "".join(added_lines)
           yield NewChunk(filepath=filepath, added_text=added_text)
 
+  def iter_sentence_nodes(self):
+    """Iterate over sentence-split nodes from new chunks.
+
+    Uses SentenceSplitter to break down added code into smaller chunks.
+
+    Yields:
+        Node: LlamaIndex nodes with sentence-split content
+    """
+    for chunk in self.iter_new_chunks():
+      yield from chunk.iter_sentence_nodes()
+
 
 @dataclass
 class NewChunk:
+  """A chunk of newly added code from a git commit."""
+
   filepath: Path
   added_text: str
+
+  def iter_sentence_nodes(self):
+    """Split added_text into sentence-level nodes using SentenceSplitter.
+
+    Yields:
+        Node: LlamaIndex nodes with sentence-split content
+    """
+    # Create a Document from the added text
+    doc = Document(
+      text=self.added_text,
+      metadata={"filepath": str(self.filepath)},
+    )
+
+    # Use SentenceSplitter to break into smaller chunks
+    splitter = SentenceSplitter(chunk_size=1024, chunk_overlap=200)
+    nodes = splitter.get_nodes_from_documents([doc])
+
+    yield from nodes

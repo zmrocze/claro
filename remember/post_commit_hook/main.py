@@ -8,8 +8,9 @@ that would eventually be sent to Zep memory.
 
 import json
 import sys
+import traceback
 
-from remember import parse_commit_diff
+from post_commit_hook import parse_commit_diff
 
 
 def main():
@@ -48,20 +49,19 @@ def main():
       status = "added" if file.is_added_file else "modified"
       print(f"    - {file.path} ({status}): +{file.added} -{file.removed}")
 
-    # Print new chunks
-    print("\nNew Chunks (Added Code):")
+    # Print sentence-split nodes
+    print("\nSentence-Split Nodes (Added Code):")
     print("=" * 80)
-    for chunk in commit_diff.iter_new_chunks():
-      print(f"\n>>> {chunk.filepath}")
-      print(chunk.added_text)
+    for node in commit_diff.iter_sentence_nodes():
+      filepath = node.metadata.get("filepath", "unknown")
+      print(f"\n>>> {filepath}")
+      print(node.text)  # pyright: ignore
       print("-" * 40)
 
     return 0
 
   except Exception as e:
     print(f"Error parsing commit diff: {e}", file=sys.stderr)
-    import traceback
-
     traceback.print_exc()
     return 1
 
