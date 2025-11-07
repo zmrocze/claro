@@ -5,11 +5,13 @@ with LlamaIndex, including conditional transforms based on file extensions and c
 handling for specific files.
 """
 
-import logging
+import csv
+import io
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Sequence, Union
+from typing import Dict, List, Sequence, Union
 
+from llama_index.core import SimpleDirectoryReader
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import (
   HTMLNodeParser,
@@ -17,13 +19,19 @@ from llama_index.core.node_parser import (
   MarkdownNodeParser,
   SentenceSplitter,
   SimpleFileNodeParser,
-  TokenTextSplitter,
 )
-from llama_index.core.schema import BaseNode, TransformComponent
-from llama_index.core.readers.base import BaseReader
-from llama_index.readers.file import DocxReader, PandasCSVReader, PDFReader
+from llama_index.core.schema import BaseNode, TextNode, TransformComponent
+from llama_index.readers.file import CSVReader
 
-logger = logging.getLogger(__name__)
+
+def directory_reader(tracked_file_paths: List[Path]):
+  return SimpleDirectoryReader(
+    input_files=tracked_file_paths,
+    filename_as_id=True,
+    file_extractor={
+      ".csv": CSVReader()
+    },  # PandasCsvReader trims header row, could also just use None here for plain text reader.
+  )
 
 
 @dataclass
@@ -55,28 +63,24 @@ PassThroughBehavior = Union[PassThroughError, PassThroughUnchanged, PassThroughD
 
 
 class ConditionalExtensionTransform(TransformComponent):
-  """Abstract transform that applies different transforms based on file extension.
+  """Transform that applies different transforms based on file extension.
 
   This transform routes nodes to different processing pipelines based on their
-  file extension. Supports both file readers (BaseReader) and node parsers
-  (TransformComponent) uniformly.
+  file extension. File readers (BaseReader) are handled by SimpleDirectoryReader
+  before this stage - this only handles node transformations.
 
   Args:
       extension_transforms: Dict mapping file extensions (e.g., '.md', '.csv') to
-          readers or transforms that should process those files.
+          TransformComponent instances that should process those files.
       pass_through_behavior: How to handle unknown extensions:
           - PassThroughError: Raise ValueError
           - PassThroughUnchanged: Pass through unchanged
           - PassThroughDefault(transform): Apply default transform
   """
 
-  def __init__(
-    self,
-    extension_transforms: Dict[str, Union[BaseReader, TransformComponent]],
-    pass_through_behavior: PassThroughBehavior = PassThroughUnchanged(),
-  ):
-    self.extension_transforms = extension_transforms
-    self.pass_through_behavior = pass_through_behavior
+  # Declare Pydantic fields as class attributes
+  extension_transforms: Dict[str, TransformComponent]
+  pass_through_behavior: PassThroughBehavior = PassThroughUnchanged()
 
   def __call__(self, nodes: Sequence[BaseNode], **kwargs) -> Sequence[BaseNode]:
     """Apply transforms conditionally based on file extension.
@@ -98,28 +102,17 @@ class ConditionalExtensionTransform(TransformComponent):
       file_path = node.metadata.get("file_path", "")
       extension = Path(file_path).suffix.lower() if file_path else ""
 
-      # Apply appropriate transform or reader
+      # Apply appropriate transform
       if extension in self.extension_transforms:
         handler = self.extension_transforms[extension]
-        # Check if it's a BaseReader or TransformComponent
-        if isinstance(handler, BaseReader):
-          # BaseReaders work on file paths, not nodes
-          # In a pipeline, they should have already converted to documents
-          # So we just pass through the node unchanged
-          result_nodes.append(node)
-        else:
-          # It's a TransformComponent with __call__
-          transformed = handler([node], **kwargs)
-          result_nodes.extend(transformed)
+        transformed = handler([node], **kwargs)
+        result_nodes.extend(transformed)
       elif isinstance(self.pass_through_behavior, PassThroughUnchanged):
         result_nodes.append(node)
       elif isinstance(self.pass_through_behavior, PassThroughDefault):
         handler = self.pass_through_behavior.transform
-        if isinstance(handler, BaseReader):
-          result_nodes.append(node)
-        else:
-          transformed = handler([node], **kwargs)
-          result_nodes.extend(transformed)
+        transformed = handler([node], **kwargs)
+        result_nodes.extend(transformed)
       elif isinstance(self.pass_through_behavior, PassThroughError):
         raise ValueError(
           f"Unknown file extension '{extension}' for file: {file_path}. "
@@ -146,6 +139,21 @@ class SkipTransform(TransformComponent):
         Empty list
     """
     return []
+
+
+class LineSplitTransform(TransformComponent):
+  """Transform that splits node content into lines.
+
+  This is useful for explicitly ignoring certain file extensions in a pipeline.
+  """
+
+  def __call__(self, nodes: Sequence[BaseNode], **kwargs) -> Sequence[BaseNode]:
+    """Split node content into lines."""
+    return [
+      TextNode(text=line, metadata=node.metadata)
+      for node in nodes
+      for line in node.get_content().splitlines()
+    ]
 
 
 class ImageMetadataTransform(TransformComponent):
@@ -198,13 +206,9 @@ class ConditionalFilenameTransform(TransformComponent):
           - PassThroughDefault(transform): Apply default transform
   """
 
-  def __init__(
-    self,
-    filename_transforms: Dict[str, TransformComponent],
-    pass_through_behavior: PassThroughBehavior = PassThroughUnchanged(),
-  ):
-    self.filename_transforms = filename_transforms
-    self.pass_through_behavior = pass_through_behavior
+  # Declare Pydantic fields as class attributes
+  filename_transforms: Dict[str, TransformComponent]
+  pass_through_behavior: PassThroughBehavior = PassThroughUnchanged()
 
   def __call__(self, nodes: Sequence[BaseNode], **kwargs) -> Sequence[BaseNode]:
     """Apply transforms conditionally based on filename.
@@ -220,12 +224,10 @@ class ConditionalFilenameTransform(TransformComponent):
         ValueError: If pass_through_behavior is PassThroughError and unknown filename encountered
     """
     result_nodes = []
-
     for node in nodes:
       # Get filename from metadata
       file_path = node.metadata.get("file_path", "")
       filename = Path(file_path).name if file_path else ""
-
       # Apply appropriate transform
       if filename in self.filename_transforms:
         transform = self.filename_transforms[filename]
@@ -242,6 +244,64 @@ class ConditionalFilenameTransform(TransformComponent):
           f"Unknown filename '{filename}' for file: {file_path}. "
           f"Known filenames: {list(self.filename_transforms.keys())}"
         )
+
+    return result_nodes
+
+
+class CheckmarksCsv(TransformComponent):
+  """Transform that parses a checkmarks CSV from habits android app format and creates nodes for positive dates.
+
+  Expected CSV format:
+  - First row: columns (first column is date, rest are category names)
+  - Subsequent rows: date values followed by category counts
+  - Count encoding: 2 means count of 1 (positive), -1/0/1 means count of 0 (negative/neutral)
+
+  For each category, this transform collects all dates with count of 1 (value 2)
+  and creates a node for each positive date with text "<date>: <category name>".
+  """
+
+  def __call__(self, nodes: Sequence[BaseNode], **kwargs) -> Sequence[BaseNode]:
+    """Parse CSV content and create nodes for positive dates per category.
+
+    Args:
+        nodes: Input nodes containing CSV data
+        **kwargs: Additional arguments (ignored)
+
+    Returns:
+        List of nodes, one per positive date-category pair
+    """
+    result_nodes = []
+    for node in nodes:
+      content = node.get_content()
+      if not content:
+        raise ValueError("Node content is empty")
+
+      csv_reader = csv.reader(io.StringIO(content))
+      rows = list(csv_reader)
+
+      if len(rows) < 2:
+        raise ValueError("CSV must have at least 2 rows")
+      header = rows[0]
+      if len(header) < 3:
+        raise ValueError(
+          "CSV must have at least 3 columns: date, column, <empty column after trailing comma> "
+        )
+      categories = header[1:-2]
+      assert (
+        header[-1] == " "
+      )  # CSV is expected to have empty column due to trailing comma
+
+      for row in rows[1:]:
+        date_value = row[0]
+        assert row[-1] == " "
+        for cat, val in zip(categories, row[1:]):
+          if int(val) == 2:
+            result_nodes.append(
+              TextNode(
+                text=f"{date_value}: {cat}",
+                metadata=node.metadata,
+              )
+            )
 
     return result_nodes
 
@@ -265,25 +325,21 @@ def main_ingestion_pipeline(
   Returns:
       Configured IngestionPipeline ready to process documents
   """
-  # All transforms - both file readers and node parsers - in one place.
-  # File readers (PDFReader, DocxReader, etc.) and node parsers are treated uniformly.
-  extension_transforms: Dict[str, Union[BaseReader, TransformComponent]] = {
+  # All node transforms in one place.
+  # Note: File readers (PDFReader, DocxReader, etc.) are already handled by SimpleDirectoryReader
+  extension_transforms: Dict[str, TransformComponent] = {
     # Specialized node parsers
     ".md": MarkdownNodeParser(),
     ".html": HTMLNodeParser(),
     ".json": JSONNodeParser(),
-    # File readers for document formats
-    ".docx": DocxReader(),
-    ".csv": PandasCSVReader(),
-    ".pdf": PDFReader(),
     # Image extensions - extract only metadata, not content
-    ".jpg": ImageMetadataTransform(),
-    ".jpeg": ImageMetadataTransform(),
-    ".png": ImageMetadataTransform(),
-    ".gif": ImageMetadataTransform(),
-    ".bmp": ImageMetadataTransform(),
-    ".svg": ImageMetadataTransform(),
-    ".webp": ImageMetadataTransform(),
+    # ".jpg": ImageMetadataTransform(),
+    # ".jpeg": ImageMetadataTransform(),
+    # ".png": ImageMetadataTransform(),
+    # ".gif": ImageMetadataTransform(),
+    # ".bmp": ImageMetadataTransform(),
+    # ".svg": ImageMetadataTransform(),
+    # ".webp": ImageMetadataTransform(),
   }
 
   # Build and return transformation pipeline as single expression
@@ -298,7 +354,8 @@ def main_ingestion_pipeline(
       [
         ConditionalFilenameTransform(
           filename_transforms={
-            "Cache.txt": TokenTextSplitter(separator="\n", chunk_size=1),
+            "Cache.txt": LineSplitTransform(),
+            "Checkmarks.csv": CheckmarksCsv(),
             "Scores.csv": SkipTransform(),
           },
           pass_through_behavior=PassThroughUnchanged(),

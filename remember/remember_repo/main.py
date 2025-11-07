@@ -18,10 +18,9 @@ from typing import Sequence
 
 from git import Repo
 from git.exc import InvalidGitRepositoryError
-from llama_index.core import SimpleDirectoryReader
 from llama_index.core.schema import BaseNode
 
-from remember.ingestors import main_ingestion_pipeline
+from remember.ingestors import ingestor, main_ingestion_pipeline
 
 # Configure logging
 logging.basicConfig(
@@ -52,12 +51,7 @@ def load_and_split_repo(
   logger.info(f"Found {len(tracked_file_paths)} tracked files")
 
   # Load documents - all file type handling is now in the transform pipeline
-  documents = SimpleDirectoryReader(
-    input_files=tracked_file_paths,
-    filename_as_id=True,
-  ).load_data()
-
-  logger.info(f"Loaded {len(documents)} documents")
+  documents = ingestor.directory_reader(tracked_file_paths).load_data()
 
   # Process through ingestion pipeline
   logger.info(f"Processing {len(documents)} documents through ingestion pipeline")
