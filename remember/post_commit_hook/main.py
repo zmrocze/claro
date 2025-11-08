@@ -36,7 +36,8 @@ def main():
     # Get first line of commit message
     first_line = commit_diff.message.split("\n")[0]
     print(f"  Message: {first_line}")
-
+    print(f"commit_diff.patch_set: {commit_diff.patch_set}")
+    print(f"commit_diff.patch_set: {type(commit_diff.patch_set)}")
     # Count files (excluding deleted/renamed)
     num_files = sum(
       1 for f in commit_diff.patch_set if not (f.is_removed_file or f.is_rename)
@@ -56,6 +57,8 @@ def main():
       filepath = node.metadata.get("filepath", "unknown")
       print(f"\n>>> {filepath}")
       print(node.text)  # pyright: ignore
+      print("extra_metadata: ", node.metadata.get("extra_metadata", "nic"))
+      # print("extra_metadata: ", node.extra_metadata)  # pyright: ignore
       print("-" * 40)
 
     return 0

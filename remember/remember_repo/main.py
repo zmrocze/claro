@@ -75,7 +75,8 @@ def create_post_commit_hook(repo_path: Path) -> None:
   hook_path = repo_path / ".git" / "hooks" / "post-commit"
 
   # Create the hook script
-  hook_content = """#!/usr/bin/env bash
+  hook_content = """
+      #!/usr/bin/env bash
       # Auto-generated post-commit hook for git-remember
       # This hook captures commit diffs and processes them for memory storage
 

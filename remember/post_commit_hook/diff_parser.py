@@ -35,12 +35,16 @@ def parse_commit_diff(commit_hash: str = "HEAD", repo_path: str = ".") -> Commit
   message = message.strip()
 
   # Get diff from parent (or empty tree if no parent)
+  # Use --no-ext-diff to bypass external diff tools (e.g., difftastic)
+  # and get standard unified diff format that unidiff can parse
   if commit.parents:
     parent = commit.parents[0]
-    diff_text = repo.git.diff(parent.hexsha, commit.hexsha, unified=3, text=True)
+    diff_text = repo.git.diff(parent.hexsha, commit.hexsha, unified=3, no_ext_diff=True)
   else:
     # Initial commit - diff against empty tree
-    diff_text = repo.git.show(commit.hexsha, format="", unified=3, text=True)
+    diff_text = repo.git.show(commit.hexsha, format="", unified=3, no_ext_diff=True)
+
+  print(f"Diff text: {diff_text}")
 
   # Parse diff using unidiff - use their types directly!
   patch_set = PatchSet(StringIO(diff_text))

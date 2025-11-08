@@ -25,6 +25,7 @@ dependencies = [
   "unidiff",
   "llama-index-core",
   "llama-index-readers-file",
+  "mistletoe",
 ]
 
 [project.optional-dependencies]
