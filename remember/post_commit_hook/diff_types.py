@@ -6,12 +6,11 @@ This module only adds commit metadata wrapper.
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.schema import Document
 from unidiff import PatchSet
-from mistletoe.block_token import Document as MarkdownDocument
-from mistletoe.block_token import Heading
 
 import logging
 
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 def _extract_markdown_headers(
   file_content: str, line_numbers: set[int]
 ) -> dict[int, list[str]]:
-  """Extract markdown headers for given line numbers.
+  """Extract markdown headers for given line numbers using line-by-line parsing.
 
   Args:
       file_content: The full markdown file content
@@ -33,66 +32,45 @@ def _extract_markdown_headers(
   if not line_numbers:
     return {}
 
-  # Parse markdown document
-  doc = MarkdownDocument(file_content)
+  # Regex for ATX-style headers (# Header)
+  header_pattern = re.compile(r"^(#{1,9})\s+(.+?)(?:\s*#*\s*)?$")
 
-  # Build a mapping of line ranges to headers
-  # We'll track headers and their line ranges
-  header_stack = []  # Stack of (level, title, start_line)
-  line_to_headers = {}  # Maps line number to list of headers
+  # Track header stack and whether we're in a code block
+  header_stack = []  # List of (level, title)
+  in_code_block = False
+  line_to_headers = {}
 
-  def process_token(token, current_line=1):
-    """Recursively process tokens and track line numbers."""
-    nonlocal header_stack
+  lines = file_content.splitlines()
 
-    if isinstance(token, Heading):
-      # Extract heading text by rendering children tokens
-      heading_text = ""
-      if token.children:
-        for child in token.children:
-          heading_text += getattr(child, "content", "")
-      level = token.level
+  for line_num, line in enumerate(lines, start=1):
+    # Check for code fence
+    if line.strip().startswith("```") or line.strip().startswith("~~~"):
+      in_code_block = not in_code_block
+      if line_num in line_numbers:
+        line_to_headers[line_num] = [h[1] for h in header_stack]
+      continue
+
+    # Skip lines inside code blocks
+    if in_code_block:
+      if line_num in line_numbers:
+        line_to_headers[line_num] = [h[1] for h in header_stack]
+      continue
+
+    # Check if this line is a header
+    match = header_pattern.match(line)
+    if match:
+      level = len(match.group(1))  # Number of # symbols
+      title = match.group(2).strip()
 
       # Pop headers from stack that are at same or deeper level
       while header_stack and header_stack[-1][0] >= level:
         header_stack.pop()
 
       # Add this header to stack
-      header_stack.append((level, heading_text, current_line))
+      header_stack.append((level, title))
 
-      # Count lines in this heading
-      lines_in_heading = heading_text.count("\n") + 1
-      return current_line + lines_in_heading
-
-    # For other tokens, process children and count lines
-    lines_consumed = 0
-    if hasattr(token, "children") and token.children:
-      for child in token.children:
-        child_lines = process_token(child, current_line + lines_consumed)
-        lines_consumed += child_lines - current_line - lines_consumed
-
-    # Count lines in token content
-    content = getattr(token, "content", "")
-    if content:
-      lines_consumed += content.count("\n")
-
-    # Map current line to current header stack
-    for line_offset in range(max(1, lines_consumed)):
-      line_num = current_line + line_offset
-      if line_num in line_numbers:
-        line_to_headers[line_num] = [h[1] for h in header_stack]
-
-    return current_line + max(1, lines_consumed)
-
-  # Process document
-  current_line = 1
-  if doc.children:
-    for child in doc.children:
-      current_line = process_token(child, current_line)
-
-  # For any lines not mapped yet, use current header stack
-  for line_num in line_numbers:
-    if line_num not in line_to_headers:
+    # Map this line to current header stack
+    if line_num in line_numbers:
       line_to_headers[line_num] = [h[1] for h in header_stack]
 
   return line_to_headers
