@@ -21,6 +21,7 @@ from git.exc import InvalidGitRepositoryError
 from llama_index.core.schema import BaseNode
 
 from remember.ingestors import ingestor, main_ingestion_pipeline
+from remember.send import ZepConfig, print_action, zep_action
 
 # Configure logging
 logging.basicConfig(
@@ -66,22 +67,27 @@ def load_and_split_repo(
   return nodes
 
 
-def create_post_commit_hook(repo_path: Path) -> None:
+def create_post_commit_hook(repo_path: Path, user_id: str | None = None) -> None:
   """Create post-commit hook that runs git-remember-hook.
 
   Args:
       repo_path: Path to git repository
+      user_id: Optional Zep user ID to pass to the hook
   """
   hook_path = repo_path / ".git" / "hooks" / "post-commit"
 
-  # Create the hook script
-  hook_content = """
-      #!/usr/bin/env bash
-      # Auto-generated post-commit hook for git-remember
-      # This hook captures commit diffs and processes them for memory storage
+  # Build the command with optional user_id argument
+  hook_command = "git-remember-hook"
+  if user_id:
+    hook_command += f" --user-id {user_id}"
 
-      git-remember-hook
-    """
+  # Create the hook script
+  hook_content = f"""#!/usr/bin/env bash
+# Auto-generated post-commit hook for git-remember
+# This hook captures commit diffs and processes them for memory storage
+
+{hook_command}
+"""
 
   logger.info(f"Creating post-commit hook at {hook_path}")
   hook_path.write_text(hook_content)
@@ -108,6 +114,8 @@ def main():
     action="store_true",
     help="Enable custom handling for specific files (Cache.txt, Scores.csv)",
   )
+  parser.add_argument("--api-key", help="Zep API key")
+  parser.add_argument("--user-id", help="Zep user ID")
   args = parser.parse_args()
 
   repo_path = args.repo_path.resolve()
@@ -138,26 +146,24 @@ def main():
     if args.custom:
       logger.info("Custom file handling enabled")
     nodes = load_and_split_repo(repo_path, enable_custom=args.custom)
-
-    # Print all nodes
-    print("\n" + "=" * 80)
-    print("NODES FROM DIRECTORY SPLITTING")
-    print("=" * 80)
-    for i, node in enumerate(nodes, 1):
-      print(f"\n--- Node {i}/{len(nodes)} ---")
-      print(f"Source: {node.metadata.get('file_path', 'unknown')}")
-      print(f"Node metadata:\n{node.metadata}")
-      print(f"Node content:\n{node.text}")  # pyright: ignore
-      print("-" * 40)
+    user_id = None
+    if len(nodes) > 0:
+      args, _ = parser.parse_known_args()
+      if args.only_print:
+        print_action(nodes)
+      else:
+        zep_config = ZepConfig.get_zep_config(args, logger)
+        zep_action(nodes, zep_config, logger.info)
+        user_id = zep_config.user_id
 
   except Exception as e:
-    logger.error(f"Failed to split directory: {e}")
+    logger.error(f"Failed to split directory and submit to zep: {e}")
     traceback.print_exc()
     return 1
 
   # If we got here, splitting succeeded - install the hook
   try:
-    create_post_commit_hook(repo_path)
+    create_post_commit_hook(repo_path, user_id=user_id)
     logger.info("✓ Successfully installed remember post-commit hook")
     logger.info("  The hook will now run after every commit")
     return 0

@@ -8,6 +8,7 @@ import logging
 from typing import Optional
 import keyring
 from dotenv import load_dotenv
+import pynentry
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,23 @@ def get_api_key(key_name: str, env_fallback: Optional[str] = None) -> Optional[s
       logger.debug(f"API key '{key_name}' retrieved from environment variable")
       return value
 
-  logger.warning(f"API key '{key_name}' not found in keyring or environment")
+  # Fall back to pynentry prompt
+  try:
+    value = pynentry.get_pin(
+      description=f"API key '{key_name}' not found in keyring or environment.\nPlease enter it below:",
+      prompt=f"{key_name}:",
+    )
+    if value:
+      logger.info(f"API key '{key_name}' entered via pynentry prompt")
+      return value
+  except pynentry.PinEntryCancelled:
+    logger.warning(f"User cancelled pynentry prompt for '{key_name}'")
+  except Exception as e:
+    logger.warning(f"Failed to prompt for '{key_name}' using pynentry: {e}")
+
+  logger.warning(
+    f"API key '{key_name}' not found in keyring, environment, or user input"
+  )
   return None
 
 

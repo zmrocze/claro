@@ -7,10 +7,25 @@ that would eventually be sent to Zep memory.
 """
 
 import json
+import logging
 import sys
 import traceback
+import argparse
 
 from post_commit_hook import parse_commit_diff
+from remember.send import ZepConfig, print_action, zep_action
+
+logger = logging.getLogger(__name__)
+
+# Command line argument parser
+parser = argparse.ArgumentParser(
+  description="Git post-commit hook with Zep integration"
+)
+parser.add_argument("--api-key", help="Zep API key")
+parser.add_argument("--user-id", help="Zep user ID")
+parser.add_argument(
+  "--only-print", action="store_true", help="Only print nodes without sending to Zep"
+)
 
 
 def main():
@@ -50,21 +65,22 @@ def main():
       status = "added" if file.is_added_file else "modified"
       print(f"    - {file.path} ({status}): +{file.added} -{file.removed}")
 
-    # Print sentence-split nodes
-    print("\nSentence-Split Nodes (Added Code):")
-    print("=" * 80)
-    for node in commit_diff.iter_sentence_nodes():
-      filepath = node.metadata.get("filepath", "unknown")
-      print(f"\n>>> {filepath}")
-      print(node.text)  # pyright: ignore
-      print("metadata: ", node.metadata)
-      # print("extra_metadata: ", node.extra_metadata)  # pyright: ignore
-      print("-" * 40)
+    nodes = list(commit_diff.iter_sentence_nodes())
+
+    print(f"  Nodes: {len(nodes)}")
+
+    if len(nodes) > 0:
+      args, _ = parser.parse_known_args()
+      if args.only_print:
+        print_action(nodes)
+      else:
+        zep_config = ZepConfig.get_zep_config(args, logger)
+        zep_action(nodes, zep_config, print)
 
     return 0
 
   except Exception as e:
-    print(f"Error parsing commit diff: {e}", file=sys.stderr)
+    logger.error(f"Error parsing commit diff and submitting to zep: {e}")
     traceback.print_exc()
     return 1
 

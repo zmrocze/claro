@@ -354,6 +354,7 @@ dependencies = [
     { name = "mistletoe" },
     { name = "platformdirs" },
     { name = "pydantic" },
+    { name = "pynentry" },
     { name = "python-dotenv" },
     { name = "pywebview" },
     { name = "pyyaml" },
@@ -397,6 +398,7 @@ requires-dist = [
     { name = "platformdirs" },
     { name = "pydantic" },
     { name = "pyjnius", marker = "extra == 'android'" },
+    { name = "pynentry" },
     { name = "pystemd", marker = "extra == 'linux'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
@@ -2260,6 +2262,14 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/56/d2/ab930e282286f413d4eaf835e05f6d753f75cd000398500e6c38e28a7e1f/pyjnius-1.7.0-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0d1e0b1bff49e5e6c24c6cc21d41693f99ad44e441de43779a057a6f247e51a3", size = 1678223, upload-time = "2025-09-08T19:32:55.017Z" },
     { url = "https://files.pythonhosted.org/packages/b0/87/ee8505baf15b2b5e13fa938247141e81bfe71e1291a4c0bc37fd14176642/pyjnius-1.7.0-cp314-cp314t-win32.whl", hash = "sha256:29cd4b6cfb134c1857c07f037b661bc03e2ee1f8c114a1c69b96e9ef4e0c13cf", size = 211559, upload-time = "2025-09-08T19:32:56.224Z" },
     { url = "https://files.pythonhosted.org/packages/ca/1e/c35aa1ebed3b5c10c613b6efbc5c80b9a6c5d2796e73f69bd01509536659/pyjnius-1.7.0-cp314-cp314t-win_amd64.whl", hash = "sha256:5b8f0d56cbd4e92f2a8e03b6560c7303acaa71144a094c92f4fa72e6da4ad521", size = 256233, upload-time = "2025-09-08T19:32:57.374Z" },
+]
+
+[[package]]
+name = "pynentry"
+version = "0.1.7"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d5/f0/e2d1640edae8d21672b562b936001327ec875264b188e8cba305de239133/pynentry-0.1.7-py3-none-any.whl", hash = "sha256:62332b8cd922901f4c9dd7533e84d6f6fac4cc85a3d29fd6d0db49e27e507f21", size = 5319, upload-time = "2024-08-12T18:36:11.087Z" },
 ]
 
 [[package]]

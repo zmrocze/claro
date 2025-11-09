@@ -16,6 +16,7 @@
 
         packages = with pkgs; [
           systemd
+          pinentry
           # python312packages.pystemd
         ];
 

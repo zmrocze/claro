@@ -102,11 +102,12 @@
 
              pystemd = prev.pystemd.overrideAttrs (old: {
               nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ 
-                final.setuptools 
-                pkgs.pkg-config 
+                final.setuptools
+                pkgs.pkg-config
               ];
-              buildInputs = (old.buildInputs or [ ]) ++ [ 
-                pkgs.systemd 
+              buildInputs = with pkgs; (old.buildInputs or [ ]) ++ [ 
+                systemd
+                pinentry
               ];
             });
           };

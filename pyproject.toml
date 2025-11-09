@@ -21,6 +21,7 @@ dependencies = [
   "asgi-correlation-id",
   "slowapi",
   "platformdirs",
+  "pynentry",
   "gitpython",
   "unidiff",
   "llama-index-core",
@@ -59,4 +60,3 @@ indent-width = 2
 
 [tool.ruff.format]
 indent-style = "space"
-
