@@ -97,9 +97,7 @@ def _group_markdown_lines_by_headers(
     logger.info("Yielding group of lines")
     added_text = "".join(value for _, value in group)
     extra_metadata = {
-      "markdown_headers": "/"
-      + "/".join(list(line_to_headers.get(group[0][0], [])))
-      + "/"
+      "header_path": "/" + "/".join(list(line_to_headers.get(group[0][0], [])))
     }
     return NewChunk(
       filepath=filepath, added_text=added_text, extra_metadata=extra_metadata
@@ -212,12 +210,9 @@ class CommitDiff:
     print("iter_new_chunks")
     for patched_file in self.patch_set:
       # Skip deleted and renamed files
-      print("HERE!!!")
-      logger.info(f"Processing file {patched_file.path}")
       if patched_file.is_removed_file or patched_file.is_rename:
         continue
 
-      logger.info(f"Processing file 2 {patched_file.path}")
       filepath = Path(patched_file.path)
       is_markdown = filepath.suffix.lower() in (".md", ".markdown")
 
@@ -226,7 +221,6 @@ class CommitDiff:
       if is_markdown and filepath.exists():
         try:
           file_content = filepath.read_text(encoding="utf-8")
-          logger.info(f"Read file content for {filepath}")
         except Exception:
           # If we can't read the file, proceed without markdown metadata
           file_content = None
@@ -235,27 +229,21 @@ class CommitDiff:
       for hunk in patched_file:
         # Collect added lines with their line numbers (preserving order)
         added_lines_with_nos = []
-        logger.info(f"Processing hunk for {filepath}")
         for line in hunk:
           if line.is_added and line.target_line_no:
             added_lines_with_nos.append((line.target_line_no, line.value))
-            logger.info(f"Added line {line.target_line_no}: {line.value}")
 
         if not added_lines_with_nos:
-          logger.info("No added lines in hunk")
           continue
 
-        logger.info("Processing added lines")
         # For non-markdown files, yield all added lines as a single chunk
         if not is_markdown or not file_content:
           added_text = "".join(value for _, value in added_lines_with_nos)
           yield NewChunk(filepath=filepath, added_text=added_text, extra_metadata=None)
           continue
 
-        logger.info("For markdown files, group consecutive lines by header context")
         # For markdown files, group consecutive lines by header context
         try:
-          logger.info("trying markdown.")
           yield from _group_markdown_lines_by_headers(
             filepath, file_content, added_lines_with_nos
           )
@@ -274,7 +262,6 @@ class CommitDiff:
         Node: LlamaIndex nodes with sentence-split content
     """
     for chunk in self.iter_new_chunks():
-      logger.info(f"Processing chunk for {chunk.filepath}")
       yield from chunk.iter_sentence_nodes()
 
 
@@ -301,12 +288,10 @@ class NewChunk:
     # Create a Document from the added text
     doc = Document(
       text=self.added_text,
-      # TODO: read headers from new version of file....
-      metadata={"filepath": str(self.filepath)} | (self.extra_metadata or {}),
+      metadata={"file_path": str(self.filepath)} | (self.extra_metadata or {}),
     )
 
     # Use SentenceSplitter to break into smaller chunks
-    splitter = SentenceSplitter(chunk_size=2024, chunk_overlap=200)
+    splitter = SentenceSplitter(chunk_size=2048, chunk_overlap=300)
     nodes = splitter.get_nodes_from_documents([doc])
-    logger.info(f"Yielding {len(nodes)} nodes from {self.filepath}")
     yield from nodes

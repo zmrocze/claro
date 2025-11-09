@@ -57,7 +57,7 @@ def main():
       filepath = node.metadata.get("filepath", "unknown")
       print(f"\n>>> {filepath}")
       print(node.text)  # pyright: ignore
-      print("extra_metadata: ", node.metadata.get("extra_metadata", "nic"))
+      print("metadata: ", node.metadata)
       # print("extra_metadata: ", node.extra_metadata)  # pyright: ignore
       print("-" * 40)
 
