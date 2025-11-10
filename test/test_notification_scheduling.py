@@ -183,7 +183,7 @@ def test_file_not_found():
 
 def test_time_range_model():
   """Test TimeRange model directly"""
-  time_range = TimeRange(from_time=time(8, 0), to_time=time(10, 0))
+  time_range = TimeRange(from_time="08:00", to_time="10:00")  # type: ignore[arg-type]
 
   assert time_range.from_time == time(8, 0)
   assert time_range.to_time == time(10, 0)
@@ -191,9 +191,11 @@ def test_time_range_model():
 
 def test_notification_config_model():
   """Test NotificationConfig model directly"""
-  # Test with time object
+  # Test with time string
   config1 = NotificationConfig(
-    timing=time(14, 30), calling="Test notification", frequency=0.5
+    timing="14:30",  # type: ignore[arg-type]
+    calling="Test notification",
+    frequency=0.5,
   )
   assert isinstance(config1.timing, time)
   assert config1.timing == time(14, 30)
@@ -202,7 +204,7 @@ def test_notification_config_model():
 
   # Test with TimeRange
   config2 = NotificationConfig(
-    timing=TimeRange(from_time=time(9, 0), to_time=time(17, 0)),
+    timing=TimeRange(from_time="09:00", to_time="17:00"),  # type: ignore[arg-type]
     calling="Test notification",
     frequency=0.8,
   )
@@ -277,7 +279,6 @@ def test_roundtrip_serialization(valid_config_yaml, tmp_path):
     notif1 = config1.notifications[name]
     notif2 = config2.notifications[name]
 
-    assert isinstance(notif1.timing, type(notif2.timing))
     assert notif1.calling == notif2.calling
     assert notif1.frequency == notif2.frequency
 
@@ -287,3 +288,7 @@ def test_roundtrip_serialization(valid_config_yaml, tmp_path):
         assert notif1.timing.to_time == notif2.timing.to_time
       case (time(), time()):
         assert notif1.timing == notif2.timing
+      case _:
+        raise AssertionError(
+          f"Type mismatch: {type(notif1.timing)} vs {type(notif2.timing)}"
+        )
