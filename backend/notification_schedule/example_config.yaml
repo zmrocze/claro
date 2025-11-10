@@ -1,0 +1,34 @@
+# Example notification scheduling configuration
+# Each notification has a name and scheduling parameters
+
+morning_reflection:
+  hours_range:
+    from: "08:00"
+    to: "10:00"
+  calling: |
+    Good morning! How are you feeling today?
+    Let's take a moment to reflect on your goals for the day.
+  frequency: 1.0
+
+afternoon_checkin:
+  hour: "14:30"
+  calling: |
+    Time for an afternoon check-in!
+    How is your day going so far?
+  frequency: 0.8
+
+evening_gratitude:
+  hours_range:
+    from: "19:00"
+    to: "21:00"
+  calling: |
+    As the day winds down, let's practice gratitude.
+    What are three things you're grateful for today?
+  frequency: 1.0
+
+weekly_review:
+  hour: "18:00"
+  calling: |
+    It's time for your weekly review.
+    Reflect on your accomplishments and learnings from this week.
+  frequency: 0.5

@@ -1,0 +1,17 @@
+[Unit]
+Description=Run Carlo daily notification scheduling
+# After=network-online.target
+# Documentation=https://example.invalid/claro/notifications
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/carlo-schedule-notifications --arg1 PLACEHOLDER1 --arg2 PLACEHOLDER2
+# WorkingDirectory=/home/USER/code/python/claro
+# EnvironmentFile=%h/.config/claro/notifications.env
+# Restart=on-failure
+# RestartSec=5s
+# StandardOutput=journal
+# StandardError=journal
+
+[Install]
+# WantedBy=default.target

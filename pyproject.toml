@@ -50,6 +50,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["backend", "os_interfaces", "remember", "notification"]
+include = [
+  "backend/notification_schedule/templates/units/*.service",
+  "backend/notification_schedule/templates/units/*.timer",
+]
 
 [tool.pyright]
 venvPath = ".devenv/state"
