@@ -4,7 +4,7 @@
 import json
 import sys
 
-from remember.diff_parser import parse_commit_diff
+from remember.post_commit_hook.diff_parser import parse_commit_diff
 
 
 def test_parse_commit():

@@ -3,8 +3,9 @@
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 import yaml
 
 from os_interfaces.linux import (
@@ -24,67 +25,51 @@ class TestLinuxNotificationManager:
     mock_notifier_class.assert_called_once_with(app_name="TestApp")
     assert manager.notifier is not None
 
+  @pytest.mark.asyncio
   @patch("os_interfaces.linux.DesktopNotifier")
-  @patch("os_interfaces.linux.asyncio.get_event_loop")
-  def test_create_notification_no_loop(self, mock_get_loop, mock_notifier_class):
-    """Test creating notification without running event loop"""
-    mock_loop = MagicMock()
-    mock_loop.is_running.return_value = False
-    mock_loop.run_until_complete = MagicMock()
-    mock_get_loop.return_value = mock_loop
-
+  async def test_create_notification_no_loop(self, mock_notifier_class):
+    """Test creating notification"""
     mock_notifier = MagicMock()
-    # Use MagicMock to avoid unawaited coroutine warning
-    mock_notifier.send = MagicMock()
+    mock_notifier.send = AsyncMock()
     mock_notifier_class.return_value = mock_notifier
 
     manager = LinuxNotificationManager(app_name="TestApp")
-    manager.create_notification("Test Title", "Test Body")
+    await manager.create_notification("Test Title", "Test Body")
 
-    mock_loop.run_until_complete.assert_called_once()
+    mock_notifier.send.assert_called_once_with(
+      title="Test Title", message="Test Body", on_clicked=None, on_dismissed=None
+    )
 
+  @pytest.mark.asyncio
   @patch("os_interfaces.linux.DesktopNotifier")
-  @patch("os_interfaces.linux.asyncio.get_event_loop")
-  @patch("os_interfaces.linux.asyncio.create_task")
-  def test_create_notification_with_loop(
-    self, mock_create_task, mock_get_loop, mock_notifier_class
-  ):
+  async def test_create_notification_with_loop(self, mock_notifier_class):
     """Test creating notification with running event loop"""
-    mock_loop = MagicMock()
-    mock_loop.is_running.return_value = True
-    mock_get_loop.return_value = mock_loop
-
     mock_notifier = MagicMock()
-    # Use MagicMock to avoid unawaited coroutine warning
-    mock_notifier.send = MagicMock()
+    mock_notifier.send = AsyncMock()
     mock_notifier_class.return_value = mock_notifier
 
     manager = LinuxNotificationManager(app_name="TestApp")
-    manager.create_notification("Test Title", "Test Body")
+    await manager.create_notification("Test Title", "Test Body")
 
-    mock_create_task.assert_called_once()
+    mock_notifier.send.assert_called_once_with(
+      title="Test Title", message="Test Body", on_clicked=None, on_dismissed=None
+    )
 
+  @pytest.mark.asyncio
   @patch("os_interfaces.linux.DesktopNotifier")
-  @patch("os_interfaces.linux.asyncio.get_event_loop")
-  def test_create_notification_with_callback(self, mock_get_loop, mock_notifier_class):
+  async def test_create_notification_with_callback(self, mock_notifier_class):
     """Test creating notification with on_clicked callback"""
-    mock_loop = MagicMock()
-    mock_loop.is_running.return_value = False
-    mock_loop.run_until_complete = MagicMock()
-    mock_get_loop.return_value = mock_loop
-
     mock_notifier = MagicMock()
-    # Use MagicMock to avoid unawaited coroutine warning
-    mock_notifier.send = MagicMock()
+    mock_notifier.send = AsyncMock()
     mock_notifier_class.return_value = mock_notifier
 
     manager = LinuxNotificationManager(app_name="TestApp")
     callback = MagicMock()
-    manager.create_notification("Test Title", "Test Body", on_clicked=callback)
+    await manager.create_notification("Test Title", "Test Body", on_clicked=callback)
 
     # Verify send was called with on_clicked parameter
     mock_notifier.send.assert_called_once_with(
-      title="Test Title", message="Test Body", on_clicked=callback
+      title="Test Title", message="Test Body", on_clicked=callback, on_dismissed=None
     )
 
 
