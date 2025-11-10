@@ -1,17 +1,23 @@
 """
-Entrypoint for creating notifications with Carlo agent responses.
+Send system notifications using named prompts from a YAML config.
+
+Reads notification configuration from ~/.config/claro/notification_schedule.yaml
+(on Linux) and triggers the specified notification using the Carlo agent.
 
 Usage:
-    python notify_with_carlo.py "Your prompt here"
+    uv run python -m notification.main <notification_name>
 """
 
+import argparse
 import asyncio
 import logging
 import subprocess
 import sys
-from typing import Optional
+from pathlib import Path
 
+from platformdirs import user_config_dir
 from backend.agent.agent import new_agent
+from backend.notification_schedule import parse_notification_config
 from os_interfaces.linux import LinuxNotificationManager
 
 logging.basicConfig(
@@ -88,19 +94,45 @@ async def create_notification(response_text: str, done_event: asyncio.Event) -> 
   logger.info("Notification created successfully")
 
 
-async def main(prompt: Optional[str] = None) -> None:
+async def main() -> None:
   """Main entrypoint function.
 
   Args:
-      prompt: User prompt (if None, reads from command line args)
+      prompt: User prompt (if None, reads from config using command line args)
   """
-  if prompt is None:
-    if len(sys.argv) < 2:
-      print("Usage: python notify_with_carlo.py 'Your prompt here'")
-      sys.exit(1)
-    prompt = " ".join(sys.argv[1:])
+  # Parse command line arguments
+  parser = argparse.ArgumentParser(
+    description="Send a system notification using a named prompt from the notification schedule config."
+  )
+  parser.add_argument(
+    "notification-name",
+    help="Name of the notification to trigger (must exist in notification_schedule.yaml)",
+  )
+  args = parser.parse_args()
 
-  logger.info(f"Processing prompt: {prompt}")
+  # Locate config file
+  config_path = (
+    Path(user_config_dir("claro", ensure_exists=True)) / "notification_schedule.yaml"
+  )
+
+  # Load config
+  try:
+    config = parse_notification_config(config_path)
+  except Exception as e:
+    logger.error(f"Error opening config file: {e}")
+    sys.exit(1)
+
+  # Look up notification by name
+  if args.notification_name not in config.notifications:
+    available = ", ".join(config.notifications.keys())
+    logger.error(f"Notification '{args.notification_name}' not found in config.")
+    logger.error(f"Available notifications: {available}")
+    sys.exit(1)
+
+  prompt = config.notifications[args.notification_name].calling
+  logger.info(
+    f"Using notification '{args.notification_name}' with prompt: {prompt[:100]}..."
+  )
 
   # Get response from Carlo agent
   response = await get_carlo_response(prompt)
