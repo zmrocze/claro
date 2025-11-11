@@ -1,5 +1,10 @@
 # Example notification scheduling configuration
 # Each notification has a name and scheduling parameters
+#
+# Frequency semantics:
+# - 0 <= frequency < 1: probabilistic scheduling (random draw to decide if schedule)
+# - frequency >= 1: schedule floor or ceil times based on fractional part
+#   e.g., 1.5 = 50% chance of 1 schedule, 50% chance of 2 schedules
 
 morning_reflection:
   hours_range:
@@ -8,14 +13,14 @@ morning_reflection:
   calling: |
     Good morning! How are you feeling today?
     Let's take a moment to reflect on your goals for the day.
-  frequency: 1.0
+  frequency: 1.0  # Always schedule once
 
 afternoon_checkin:
   hour: "14:30"
   calling: |
     Time for an afternoon check-in!
     How is your day going so far?
-  frequency: 0.8
+  frequency: 0.8  # 80% chance to schedule
 
 evening_gratitude:
   hours_range:
@@ -24,11 +29,20 @@ evening_gratitude:
   calling: |
     As the day winds down, let's practice gratitude.
     What are three things you're grateful for today?
-  frequency: 1.0
+  frequency: 1.0  # Always schedule once
 
 weekly_review:
   hour: "18:00"
   calling: |
     It's time for your weekly review.
     Reflect on your accomplishments and learnings from this week.
-  frequency: 0.5
+  frequency: 0.5  # 50% chance to schedule
+
+hydration_reminder:
+  hours_range:
+    from: "09:00"
+    to: "17:00"
+  calling: |
+    Remember to stay hydrated!
+    Take a moment to drink some water.
+  frequency: 2.5  # 50% chance of 2 schedules, 50% chance of 3 schedules

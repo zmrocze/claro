@@ -63,9 +63,14 @@ class NotificationConfig(BaseModel):
   @field_validator("frequency")
   @classmethod
   def validate_frequency(cls, v: float) -> float:
-    """Ensure frequency is between 0 and 1"""
-    if not 0 <= v <= 1:
-      raise ValueError(f"Frequency must be between 0 and 1, got: {v}")
+    """Validate frequency value.
+
+    - 0 <= frequency < 1: probabilistic scheduling
+    - frequency >= 1: schedule floor or ceil times based on fractional part
+      (e.g., 1.5 = 50% chance of 1, 50% chance of 2)
+    """
+    if v < 0:
+      raise ValueError(f"Frequency must be non-negative, got: {v}")
     return v
 
 

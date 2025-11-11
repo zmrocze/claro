@@ -4,9 +4,14 @@ Systemd-based notification scheduling for Claro.
 
 ## Overview
 
-This module provides configuration parsing for notification schedules. The
-actual scheduling is handled by the `os_interfaces` module which provides two
-methods:
+This module provides:
+
+1. **Configuration parsing** - Parse YAML config files with notification rules
+2. **Scheduler program** - `notification-scheduler` reads config and schedules
+   notifications for the next day
+3. **OS integration** - Uses `os_interfaces` module for systemd timer management
+
+The `os_interfaces` module provides two key methods:
 
 1. **`schedule_daily`** - Installs a persistent daily timer that runs
    notification scheduling logic once per day
@@ -31,43 +36,97 @@ The notification system has two layers:
 - Supports specific times (`time`) or randomized time ranges (`TimeRange`)
 - Uses `RandomizedDelaySec` for time range notifications
 
-## Usage
+## Scheduler Program Usage
+
+The `notification-scheduler` program reads the notification configuration and
+schedules all notifications for the next day.
+
+### Command Line
+
+```bash
+# Use default config location (~/.config/claro/notification_schedule.yaml)
+notification-scheduler
+
+# Specify custom config file
+notification-scheduler --config /path/to/config.yaml
+
+# Specify custom notification command (default: notify-with-carlo)
+notification-scheduler --notification-command /path/to/custom-notifier
+```
+
+### Configuration File Format
+
+Create `~/.config/claro/notification_schedule.yaml`:
+
+```yaml
+morning_reflection:
+  hour: "08:30" # Specific time
+  calling: |
+    Good morning! How are you feeling today?
+  frequency: 1.0 # Always schedule
+
+afternoon_checkin:
+  hours_range: # Random time within range
+    from: "14:00"
+    to: "16:00"
+  calling: |
+    Time for an afternoon check-in!
+  frequency: 0.8 # 80% chance to schedule
+
+hydration_reminder:
+  hours_range:
+    from: "09:00"
+    to: "17:00"
+  calling: |
+    Remember to drink water!
+  frequency: 3.0 # Schedule 3 times
+```
+
+### Frequency Semantics
+
+- **frequency < 1**: Probabilistic scheduling. Random draw determines if
+  notification is scheduled.
+  - `0.8` = 80% chance to schedule once
+  - `0.5` = 50% chance to schedule once
+  - `0.0` = Never schedule
+
+- **frequency >= 1**: Schedule floor(frequency) or ceil(frequency) times based
+  on fractional part.
+  - `1.0` = Schedule once (always)
+  - `1.5` = 50% chance of 1 schedule, 50% chance of 2 schedules
+  - `2.0` = Schedule twice (creates `name-0` and `name-1`)
+  - `2.3` = 70% chance of 2 schedules, 30% chance of 3 schedules
+  - `3.0` = Schedule three times
+
+### Building with Nix
+
+```bash
+# Build the scheduler
+nix build .#notification-scheduler
+
+# Run directly
+./result/bin/notification-scheduler
+```
+
+## Programmatic Usage
 
 ```python
 from datetime import time
 from os_interfaces.linux import LinuxTimerManager
 from os_interfaces.base import TimerConfig
+from backend.notification_schedule.config_parser import TimeRange
 
 # Initialize timer manager
 timer_mgr = LinuxTimerManager(app_name="claro")
 
-# Install daily scheduler (idempotent, call on app startup)
-timer_mgr.schedule_daily(
-    command="/usr/bin/claro-schedule-notifications",
-    args=["--config", "/path/to/config.yaml"],
-    run_time=time(9, 0)  # Run daily at 9 AM
+# Schedule individual notifications
+config = TimerConfig(
+    timing=time(14, 30),  # or TimeRange(from_time=..., to_time=...)
+    command="notify-with-carlo",
+    args=["afternoon_checkin"],  # notification name
+    name="afternoon_checkin"
 )
-
-# Schedule individual notifications (called by daily scheduler)
-from backend.notification_schedule.config_parser import TimeRange
-
-# Specific time notification
-config1 = TimerConfig(
-    timing=time(14, 30),
-    command="/usr/bin/claro-notify",
-    args=["--message", "Afternoon reminder"],
-    name="afternoon"
-)
-timer_mgr.schedule_timer(config1)
-
-# Time range notification (randomized within range)
-config2 = TimerConfig(
-    timing=TimeRange(from_time=time(9, 0), to_time=time(11, 0)),
-    command="/usr/bin/claro-notify",
-    args=["--message", "Morning reminder"],
-    name="morning"
-)
-timer_mgr.schedule_timer(config2)
+timer_mgr.schedule_timer(config)
 ```
 
 ## Verification
