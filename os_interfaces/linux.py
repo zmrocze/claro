@@ -1,8 +1,8 @@
 """Linux-specific implementations of OS interfaces"""
 
 import logging
-import uuid
-from datetime import datetime
+from contextlib import contextmanager
+from datetime import datetime, time
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -12,7 +12,8 @@ from platformdirs import user_config_dir
 from pystemd.dbuslib import DBus
 from pystemd.systemd1 import Manager
 
-from .base import ConfigStorage, NotificationManager, TimerManager
+from backend.notification_schedule.config_parser import TimeRange
+from .base import ConfigStorage, NotificationManager, TimerConfig, TimerManager
 
 logger = logging.getLogger(__name__)
 
@@ -49,100 +50,149 @@ class LinuxNotificationManager(NotificationManager):
 
 
 class LinuxTimerManager(TimerManager):
-  """Linux timer manager using pystemd transient units"""
+  """Linux timer manager using persistent systemd user units"""
 
   def __init__(self, app_name: str):
     self.app_name = app_name
-    self.timers: dict[str, str] = {}  # timer_id -> systemd unit name
 
-  def schedule_timer(
-    self, time: datetime, command: str, args: Optional[list[str]] = None
+  # ---- helpers ----
+  @contextmanager
+  def _connect_systemd(self):
+    with DBus(user_mode=True) as bus:
+      manager = Manager(bus=bus)
+      manager.load()
+      yield manager
+
+  def _user_unit_dir(self) -> Path:
+    return Path.home() / ".config/systemd/user"
+
+  def _write_unit(self, name: str, content: str) -> Path:
+    d = self._user_unit_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / name
+    p.write_text(content)
+    return p
+
+  def _list_unit_files(self, manager: Manager) -> list[bytes]:
+    return [u[0] for u in manager.Manager.ListUnitFiles()]
+
+  def _unit_files_exist(self, manager: Manager, base: str) -> bool:
+    files = self._list_unit_files(manager)
+    return any(f.endswith(f"{base}.service".encode()) for f in files) and any(
+      f.endswith(f"{base}.timer".encode()) for f in files
+    )
+
+  def _enable_and_start_timer(self, manager: Manager, timer: str) -> None:
+    manager.Manager.EnableUnitFiles([f"{timer}.timer".encode()], False, True)
+    manager.Manager.StartUnit(f"{timer}.timer".encode(), b"replace")
+
+  def _reload(self, manager: Manager) -> None:
+    manager.Manager.Reload()
+
+  def _unit_name(self, prefix: str, name: str | None, time_info: str) -> str:
+    """Generate unit name from prefix, notification name, and time."""
+    base = f"{self.app_name}-{prefix}"
+    if name:
+      base += f"-{name}"
+    base += f"-{time_info}"
+    return base
+
+  def _service_content(
+    self, base: str, command: str, args: list[str], after: str | None = None
   ) -> str:
-    """Schedule a timer to run a command using systemd transient units
+    after_line = f"After={after}.timer\n" if after else ""
+    exec_line = " ".join([command, *args])
+    return (
+      "[Unit]\n"
+      f"Description={self.app_name} service {base}\n"
+      f"{after_line}"
+      "\n[Service]\n"
+      "Type=oneshot\n"
+      f"ExecStart={exec_line}\n"
+      "\n[Install]\n"
+      f"WantedBy={self.app_name}.target\n"
+    )
 
-    Creates both a service unit (to run the command) and a timer unit
-    (to trigger the service at the specified time).
-    """
-    timer_id = str(uuid.uuid4())
-    service_name = f"{self.app_name}-{timer_id}"
-    timer_name = f"{service_name}.timer"
+  def _timer_content(
+    self, base: str, on_calendar: str, unit: str, randomized_delay: str | None = None
+  ) -> str:
+    rand = f"RandomizedDelaySec={randomized_delay}\n" if randomized_delay else ""
+    return (
+      "[Unit]\n"
+      f"Description={self.app_name} timer {base}\n"
+      f"After={unit}.service\n"
+      "\n[Timer]\n"
+      f"OnCalendar={on_calendar}\n"
+      "Persistent=true\n"
+      f"{rand}"
+      f"Unit={unit}.service\n"
+      "\n[Install]\n"
+      "WantedBy=timers.target\n"
+    )
 
-    try:
-      # Calculate time until trigger
-      now = datetime.now()
-      if time <= now:
-        logger.warning("Timer scheduled for past time, cannot schedule")
-        return timer_id
+  # ---- public API ----
+  def schedule_timer(self, timer_config: TimerConfig) -> str:
+    """Create persistent oneshot timer via unit files and start it"""
+    t = timer_config.timing
+    name_gist = (
+      f"{t.from_time.strftime('%H%M')}-{t.to_time.strftime('%H%M')}"
+      if isinstance(t, TimeRange)
+      else t.strftime("%H%M")
+    )
+    base = self._unit_name("notification", timer_config.name, name_gist)
 
-      delay_seconds = int((time - now).total_seconds())
+    # systemd time expression and optional randomization
+    if isinstance(t, TimeRange):
+      on_cal = f"*-*-* {t.from_time.strftime('%H:%M')}:00"
+      # duration in seconds between from and to
+      delta = (
+        datetime.combine(datetime.today(), t.to_time)
+        - datetime.combine(datetime.today(), t.from_time)
+      ).seconds
+      randomized = f"{delta}s"
+    else:
+      on_cal = f"*-*-* {t.strftime('%H:%M')}:00"
+      randomized = None
 
-      with DBus(user_mode=True) as bus:
-        manager = Manager(bus=bus)
-        manager.load()
+    service_txt = self._service_content(base, timer_config.command, timer_config.args)
+    timer_txt = self._timer_content(base, on_cal, base, randomized)
 
-        # Build command with arguments
-        cmd_args = [command]
-        if args:
-          cmd_args.extend(args)
+    with self._connect_systemd() as m:
+      self._write_unit(f"{base}.service", service_txt)
+      self._write_unit(f"{base}.timer", timer_txt)
+      self._reload(m)
+      self._enable_and_start_timer(m, base)
 
-        # Create service unit properties
-        service_properties = {
-          b"Type": b"oneshot",
-          b"RemainAfterExit": False,
-          b"ExecStart": [(command.encode(), [arg.encode() for arg in cmd_args], False)],
-        }
+    logger.info(f"Scheduled oneshot '{timer_config.command}' as {base} at {on_cal}")
+    return base
 
-        # Create timer unit properties
-        timer_properties = {
-          b"OnActiveSec": delay_seconds * 1000000,  # microseconds
-          b"RemainAfterElapse": False,
-          b"Unit": f"{service_name}.service".encode(),
-        }
+  def schedule_daily(self, command: str, args: list[str], run_time: time) -> None:
+    """Install/enable a daily scheduler; idempotent."""
+    base = f"{self.app_name}-notification-scheduler"
+    on_cal = f"*-*-* {run_time.strftime('%H:%M')}:00"
 
-        # Start the service unit first (inactive, will be triggered by timer)
-        manager.Manager.StartTransientUnit(
-          f"{service_name}.service".encode(),
-          b"fail",
-          service_properties,
-          [],
-        )
+    service_txt = self._service_content(base, command, args)
+    timer_txt = self._timer_content(base, on_cal, base)
 
-        # Start the timer unit
-        manager.Manager.StartTransientUnit(
-          timer_name.encode(), b"fail", timer_properties, []
-        )
-
-      self.timers[timer_id] = service_name
-      logger.info(f"Timer {timer_id} scheduled to run '{command}' at {time}")
-      return timer_id
-
-    except Exception as e:
-      logger.error(f"Failed to schedule timer: {e}")
-      return timer_id
+    with self._connect_systemd() as m:
+      if not self._unit_files_exist(m, base):
+        self._write_unit(f"{base}.service", service_txt)
+        self._write_unit(f"{base}.timer", timer_txt)
+        self._reload(m)
+      else:
+        logger.info("Daily scheduler units already present")
+      self._enable_and_start_timer(m, base)
 
   def cancel_timer(self, timer_id: str) -> None:
-    """Cancel a scheduled timer"""
-    if timer_id not in self.timers:
-      logger.warning(f"Timer {timer_id} not found")
-      return
-
-    unit_name = self.timers[timer_id]
-
+    """Stop and disable a timer. timer_id is the base unit name."""
     try:
-      with DBus(user_mode=True) as bus:
-        manager = Manager(bus=bus)
-        manager.load()
-
-        # Stop the timer unit
+      with self._connect_systemd() as m:
         try:
-          manager.Manager.StopUnit(f"{unit_name}.timer".encode(), b"fail")
-          logger.info(f"Timer {timer_id} cancelled")
+          m.Manager.StopUnit(f"{timer_id}.timer".encode(), b"replace")
+          m.Manager.DisableUnitFiles([f"{timer_id}.timer".encode()], False)
+          logger.info(f"Cancelled timer {timer_id}")
         except Exception as e:
-          logger.debug(f"Timer unit may not exist: {e}")
-
-      # Clean up
-      del self.timers[timer_id]
-
+          logger.warning(f"Could not cancel timer {timer_id}: {e}")
     except Exception as e:
       logger.error(f"Failed to cancel timer: {e}")
 

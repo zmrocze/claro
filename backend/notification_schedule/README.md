@@ -1,83 +1,123 @@
-# Carlo Notification Scheduler
+# Claro Notification Scheduler
 
-Systemd-based daily scheduler for Carlo notification preparation.
+Systemd-based notification scheduling for Claro.
 
 ## Overview
 
-This module installs systemd user units that run the
-`carlo-schedule-notifications` command once per day. The scheduler consists of
-two systemd units:
+This module provides configuration parsing for notification schedules. The
+actual scheduling is handled by the `os_interfaces` module which provides two
+methods:
 
-1. **claro-notification-scheduler.service** - A oneshot service that executes
-   `carlo-schedule-notifications`
-2. **claro-notification-scheduler.timer** - A timer that triggers the service
-   daily
+1. **`schedule_daily`** - Installs a persistent daily timer that runs
+   notification scheduling logic once per day
+2. **`schedule_timer`** - Creates one-shot timers for individual notifications
+   at specific times or within time ranges
 
-## Installation
+## Architecture
 
-Install and enable the scheduler:
+The notification system has two layers:
 
-```bash
-uv run python -c "from backend.notification_schedule.installer import ensure_notification_scheduler_units_installed; ensure_notification_scheduler_units_installed()"
+### Daily Scheduler (Persistent)
+
+- Installed once when the app starts
+- Creates systemd timer + service units in `~/.config/systemd/user/`
+- Runs daily at a configured time
+- Idempotent - safe to call multiple times
+
+### One-shot Notification Timers
+
+- Created dynamically by the daily scheduler
+- Each notification gets its own systemd timer + service
+- Supports specific times (`time`) or randomized time ranges (`TimeRange`)
+- Uses `RandomizedDelaySec` for time range notifications
+
+## Usage
+
+```python
+from datetime import time
+from os_interfaces.linux import LinuxTimerManager
+from os_interfaces.base import TimerConfig
+
+# Initialize timer manager
+timer_mgr = LinuxTimerManager(app_name="claro")
+
+# Install daily scheduler (idempotent, call on app startup)
+timer_mgr.schedule_daily(
+    command="/usr/bin/claro-schedule-notifications",
+    args=["--config", "/path/to/config.yaml"],
+    run_time=time(9, 0)  # Run daily at 9 AM
+)
+
+# Schedule individual notifications (called by daily scheduler)
+from backend.notification_schedule.config_parser import TimeRange
+
+# Specific time notification
+config1 = TimerConfig(
+    timing=time(14, 30),
+    command="/usr/bin/claro-notify",
+    args=["--message", "Afternoon reminder"],
+    name="afternoon"
+)
+timer_mgr.schedule_timer(config1)
+
+# Time range notification (randomized within range)
+config2 = TimerConfig(
+    timing=TimeRange(from_time=time(9, 0), to_time=time(11, 0)),
+    command="/usr/bin/claro-notify",
+    args=["--message", "Morning reminder"],
+    name="morning"
+)
+timer_mgr.schedule_timer(config2)
 ```
-
-This will:
-
-- Link unit files from the package into `~/.config/systemd/user/`
-- Enable the timer (auto-start on login)
-- Start the timer immediately
-
-The installation is **idempotent** - safe to run multiple times.
 
 ## Verification
 
-Check timer status:
+Check daily scheduler status:
 
 ```bash
 systemctl --user status claro-notification-scheduler.timer
 ```
 
-List scheduled timers:
+List all scheduled timers (including one-shot notification timers):
 
 ```bash
 systemctl --user list-timers
 ```
 
-View service logs:
+View logs for the daily scheduler:
 
 ```bash
 journalctl --user -u claro-notification-scheduler.service
 ```
 
-Follow logs in real-time:
+View logs for specific notification timers:
 
 ```bash
-journalctl --user -u claro-notification-scheduler.service -f
+systemctl --user list-units 'claro-notification-*.timer'
+journalctl --user -u 'claro-notification-*'
 ```
 
 ## Customization
 
-The unit files are templates with sensible defaults. To customize:
+Unit files are created in `~/.config/systemd/user/` and can be edited:
 
-1. Locate the linked files:
+1. Locate the unit files:
    ```bash
-   ls -l ~/.config/systemd/user/claro-notification-scheduler.*
+   ls -l ~/.config/systemd/user/claro-*
    ```
 
-2. Edit the service unit to:
-   - Change `ExecStart` command and arguments (replace `PLACEHOLDER1`,
-     `PLACEHOLDER2`)
-   - Set `WorkingDirectory` if needed
-   - Uncomment and configure `EnvironmentFile` for environment variables
-   - Enable logging via `StandardOutput=journal` and `StandardError=journal`
+2. Edit the daily scheduler:
+   ```bash
+   systemctl --user edit --full claro-notification-scheduler.service
+   systemctl --user edit --full claro-notification-scheduler.timer
+   ```
 
-3. Edit the timer unit to:
-   - Change schedule: replace `OnCalendar=daily` with specific time like
-     `OnCalendar=*-*-* 09:00:00`
-   - Add randomization: uncomment `RandomizedDelaySec=1h`
-   - Adjust timing accuracy: uncomment `AccuracySec=5m`
+3. Common customizations:
+   - Change daily run time: modify `OnCalendar=*-*-* HH:MM:00` in timer unit
+   - Add environment variables: add `Environment=VAR=value` to service unit
+   - Adjust command/args: modify `ExecStart=` in service unit
 
-4. Reload systemd after editing:
+4. Reload after editing:
    ```bash
    systemctl --user daemon-reload
    systemctl --user restart claro-notification-scheduler.timer
@@ -85,30 +125,33 @@ The unit files are templates with sensible defaults. To customize:
 
 ## Uninstallation
 
-For testing and development, uninstall the scheduler:
+To stop and disable the daily scheduler:
 
 ```bash
-uv run python -c "from backend.notification_schedule.installer import uninstall_scheduler_units; uninstall_scheduler_units()"
+systemctl --user stop claro-notification-scheduler.timer
+systemctl --user disable claro-notification-scheduler.timer
 ```
 
-This stops the timer and disables auto-start. Unit files remain linked but
-inactive.
-
-To fully remove (optional):
+To fully remove all unit files:
 
 ```bash
-rm ~/.config/systemd/user/claro-notification-scheduler.service
-rm ~/.config/systemd/user/claro-notification-scheduler.timer
+rm ~/.config/systemd/user/claro-notification-*.service
+rm ~/.config/systemd/user/claro-notification-*.timer
+rm ~/.config/systemd/user/claro-*.service
+rm ~/.config/systemd/user/claro-*.timer
 systemctl --user daemon-reload
 ```
 
-## Architecture
+## Implementation Details
 
 - **User-level units**: No root/sudo required, runs in your user session
 - **pystemd**: Python library for D-Bus communication with systemd
-- **LinkUnitFiles**: Creates symlinks (not copies) so package updates propagate
-  automatically
-- **Persistent timer**: Missed schedules (e.g. system was off) run on next login
+- **Persistent timers**: Use `Persistent=true` so missed schedules run on next
+  boot
+- **Unit files**: Written directly to `~/.config/systemd/user/`, no symlinks
+- **Unique naming**: One-shot timers include notification name + time + UUID to
+  avoid conflicts
+- **RandomizedDelaySec**: Used for time range notifications to spread load
 
 ## Troubleshooting
 
@@ -122,8 +165,8 @@ systemctl --user is-active claro-notification-scheduler.timer
 **Service failing:**
 
 - Check logs: `journalctl --user -u claro-notification-scheduler.service`
-- Verify `carlo-schedule-notifications` executable exists and is in PATH
-- Expected failure if the executable hasn't been implemented yet
+- Verify the command specified in `ExecStart` exists and is executable
+- Check that all required arguments are properly formatted
 
 **Unit files not found:**
 

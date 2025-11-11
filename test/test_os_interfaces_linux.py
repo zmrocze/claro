@@ -1,13 +1,15 @@
 """Tests for Linux OS interfaces"""
 
 import tempfile
-from datetime import datetime, timedelta
+from datetime import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import yaml
 
+from backend.notification_schedule.config_parser import TimeRange
+from os_interfaces.base import TimerConfig
 from os_interfaces.linux import (
   LinuxConfigStorage,
   LinuxNotificationManager,
@@ -77,67 +79,171 @@ class TestLinuxTimerManager:
   """Tests for LinuxTimerManager"""
 
   def test_init(self):
-    """Test timer manager initialization"""
     manager = LinuxTimerManager(app_name="TestApp")
     assert manager.app_name == "TestApp"
-    assert manager.timers == {}
 
   @patch("os_interfaces.linux.DBus")
   @patch("os_interfaces.linux.Manager")
-  def test_schedule_timer_future(self, mock_manager_class, mock_dbus_class):
-    """Test scheduling a timer for future time"""
+  @patch("os_interfaces.linux.Path.write_text")
+  def test_schedule_timer_with_time(
+    self, mock_write, mock_manager_class, mock_dbus_class
+  ):
+    """Test schedule_timer with specific time"""
     mock_dbus = MagicMock()
     mock_dbus_class.return_value.__enter__ = MagicMock(return_value=mock_dbus)
     mock_dbus_class.return_value.__exit__ = MagicMock(return_value=None)
-
     mock_manager = MagicMock()
-    mock_manager.Manager.StartTransientUnit = MagicMock()
+    mock_manager.Manager.ListUnitFiles.return_value = []
+    mock_manager.Manager.EnableUnitFiles = MagicMock()
+    mock_manager.Manager.StartUnit = MagicMock()
+    mock_manager.Manager.Reload = MagicMock()
     mock_manager_class.return_value = mock_manager
 
     manager = LinuxTimerManager(app_name="TestApp")
-    future_time = datetime.now() + timedelta(seconds=10)
+    cfg = TimerConfig(
+      timing=time(14, 30), command="/usr/bin/echo", args=["test"], name="morning"
+    )
+    timer_id = manager.schedule_timer(cfg)
 
-    timer_id = manager.schedule_timer(future_time, "/usr/bin/echo", ["Hello", "World"])
-
-    assert timer_id in manager.timers
-    # Verify both service and timer units were created
-    assert mock_manager.Manager.StartTransientUnit.call_count == 2
-
-  def test_schedule_timer_past(self):
-    """Test scheduling a timer for past time returns without scheduling"""
-    manager = LinuxTimerManager(app_name="TestApp")
-    past_time = datetime.now() - timedelta(seconds=10)
-
-    timer_id = manager.schedule_timer(past_time, "/usr/bin/echo", ["test"])
-
-    # Timer ID is returned but nothing is scheduled
     assert timer_id is not None
-    assert timer_id not in manager.timers
+    assert mock_write.call_count == 2  # service + timer files
+    # Check OnCalendar format in timer unit
+    timer_content = mock_write.call_args_list[1][0][0]
+    assert "OnCalendar=*-*-* 14:30:00" in timer_content
+    assert "RandomizedDelaySec" not in timer_content
+
+  @patch("os_interfaces.linux.DBus")
+  @patch("os_interfaces.linux.Manager")
+  @patch("os_interfaces.linux.Path.write_text")
+  def test_schedule_timer_with_timerange(
+    self, mock_write, mock_manager_class, mock_dbus_class
+  ):
+    """Test schedule_timer with TimeRange uses RandomizedDelaySec"""
+    mock_dbus = MagicMock()
+    mock_dbus_class.return_value.__enter__ = MagicMock(return_value=mock_dbus)
+    mock_dbus_class.return_value.__exit__ = MagicMock(return_value=None)
+    mock_manager = MagicMock()
+    mock_manager.Manager.ListUnitFiles.return_value = []
+    mock_manager.Manager.EnableUnitFiles = MagicMock()
+    mock_manager.Manager.StartUnit = MagicMock()
+    mock_manager.Manager.Reload = MagicMock()
+    mock_manager_class.return_value = mock_manager
+
+    manager = LinuxTimerManager(app_name="TestApp")
+    tr = TimeRange(from_time=time(9, 0), to_time=time(11, 0))
+    cfg = TimerConfig(timing=tr, command="/usr/bin/echo", name="flex")
+    timer_id = manager.schedule_timer(cfg)
+
+    assert timer_id is not None
+    timer_content = mock_write.call_args_list[1][0][0]
+    assert "OnCalendar=*-*-* 09:00:00" in timer_content
+    assert "RandomizedDelaySec=7200s" in timer_content  # 2 hours
+
+  @patch("os_interfaces.linux.DBus")
+  @patch("os_interfaces.linux.Manager")
+  @patch("os_interfaces.linux.Path.write_text")
+  def test_schedule_timer_naming(self, mock_write, mock_manager_class, mock_dbus_class):
+    """Test schedule_timer generates names with optional name field"""
+    mock_dbus = MagicMock()
+    mock_dbus_class.return_value.__enter__ = MagicMock(return_value=mock_dbus)
+    mock_dbus_class.return_value.__exit__ = MagicMock(return_value=None)
+    mock_manager = MagicMock()
+    mock_manager.Manager.ListUnitFiles.return_value = []
+    mock_manager.Manager.EnableUnitFiles = MagicMock()
+    mock_manager.Manager.StartUnit = MagicMock()
+    mock_manager.Manager.Reload = MagicMock()
+    mock_manager_class.return_value = mock_manager
+
+    manager = LinuxTimerManager(app_name="claro")
+    cfg1 = TimerConfig(timing=time(9, 0), command="/bin/true", name="test")
+    cfg2 = TimerConfig(timing=time(9, 0), command="/bin/true")  # no name
+
+    id1 = manager.schedule_timer(cfg1)
+    id2 = manager.schedule_timer(cfg2)
+
+    assert "test" in id1
+    assert "test" not in id2
+
+  @patch("os_interfaces.linux.DBus")
+  @patch("os_interfaces.linux.Manager")
+  @patch("os_interfaces.linux.Path.write_text")
+  def test_schedule_daily_creates_units(
+    self, mock_write, mock_manager_class, mock_dbus_class
+  ):
+    """Test schedule_daily creates unit files when they don't exist"""
+    mock_dbus = MagicMock()
+    mock_dbus_class.return_value.__enter__ = MagicMock(return_value=mock_dbus)
+    mock_dbus_class.return_value.__exit__ = MagicMock(return_value=None)
+    mock_manager = MagicMock()
+    mock_manager.Manager.ListUnitFiles.return_value = []  # no units exist
+    mock_manager.Manager.EnableUnitFiles = MagicMock()
+    mock_manager.Manager.StartUnit = MagicMock()
+    mock_manager.Manager.Reload = MagicMock()
+    mock_manager_class.return_value = mock_manager
+
+    manager = LinuxTimerManager(app_name="claro")
+    manager.schedule_daily("/usr/bin/notify", ["--daily"], time(9, 0))
+
+    assert mock_write.call_count == 2  # service + timer
+    service_content = mock_write.call_args_list[0][0][0]
+    timer_content = mock_write.call_args_list[1][0][0]
+    assert "ExecStart=/usr/bin/notify --daily" in service_content
+    assert "OnCalendar=*-*-* 09:00:00" in timer_content
+    assert "Persistent=true" in timer_content
+    mock_manager.Manager.Reload.assert_called_once()
+
+  @patch("os_interfaces.linux.DBus")
+  @patch("os_interfaces.linux.Manager")
+  @patch("os_interfaces.linux.Path.write_text")
+  def test_schedule_daily_idempotent(
+    self, mock_write, mock_manager_class, mock_dbus_class
+  ):
+    """Test schedule_daily is idempotent when units already exist"""
+    mock_dbus = MagicMock()
+    mock_dbus_class.return_value.__enter__ = MagicMock(return_value=mock_dbus)
+    mock_dbus_class.return_value.__exit__ = MagicMock(return_value=None)
+    mock_manager = MagicMock()
+    # units already exist
+    mock_manager.Manager.ListUnitFiles.return_value = [
+      (b"/path/claro-notification-scheduler.service", b"enabled"),
+      (b"/path/claro-notification-scheduler.timer", b"enabled"),
+    ]
+    mock_manager.Manager.EnableUnitFiles = MagicMock()
+    mock_manager.Manager.StartUnit = MagicMock()
+    mock_manager.Manager.Reload = MagicMock()
+    mock_manager_class.return_value = mock_manager
+
+    manager = LinuxTimerManager(app_name="claro")
+    manager.schedule_daily("/usr/bin/notify", [], time(9, 0))
+
+    # Should not write files or reload
+    mock_write.assert_not_called()
+    mock_manager.Manager.Reload.assert_not_called()
+    # But should still enable/start
+    mock_manager.Manager.EnableUnitFiles.assert_called_once()
+    mock_manager.Manager.StartUnit.assert_called_once()
 
   @patch("os_interfaces.linux.DBus")
   @patch("os_interfaces.linux.Manager")
   def test_cancel_timer(self, mock_manager_class, mock_dbus_class):
-    """Test cancelling a scheduled timer"""
+    """Test cancel_timer stops and disables the timer"""
     mock_dbus = MagicMock()
     mock_dbus_class.return_value.__enter__ = MagicMock(return_value=mock_dbus)
     mock_dbus_class.return_value.__exit__ = MagicMock(return_value=None)
-
     mock_manager = MagicMock()
     mock_manager.Manager.StopUnit = MagicMock()
+    mock_manager.Manager.DisableUnitFiles = MagicMock()
     mock_manager_class.return_value = mock_manager
 
     manager = LinuxTimerManager(app_name="TestApp")
-    manager.timers["test-id"] = "test-unit"
+    manager.cancel_timer("test-unit")
 
-    manager.cancel_timer("test-id")
-
-    assert "test-id" not in manager.timers
-
-  def test_cancel_nonexistent_timer(self):
-    """Test cancelling a timer that doesn't exist"""
-    manager = LinuxTimerManager(app_name="TestApp")
-    # Should not raise an exception
-    manager.cancel_timer("nonexistent-id")
+    mock_manager.Manager.StopUnit.assert_called_once_with(
+      b"test-unit.timer", b"replace"
+    )
+    mock_manager.Manager.DisableUnitFiles.assert_called_once_with(
+      [b"test-unit.timer"], False
+    )
 
 
 class TestLinuxConfigStorage:

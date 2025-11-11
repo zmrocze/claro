@@ -1,9 +1,9 @@
 """Android-specific implementations of OS interfaces"""
 
-from datetime import datetime
+from datetime import time
 from typing import Callable, Optional
 
-from .base import NotificationManager, TimerManager
+from .base import NotificationManager, TimerConfig, TimerManager
 
 
 class AndroidNotificationManager(NotificationManager):
@@ -31,11 +31,13 @@ class AndroidTimerManager(TimerManager):
     # TODO: Initialize PyJNIus AlarmManager
     pass
 
-  def schedule_timer(
-    self, time: datetime, command: str, args: Optional[list[str]] = None
-  ) -> str:
+  def schedule_timer(self, timer_config: TimerConfig) -> str:
     # TODO: Implement using AlarmManager to run command
     return "android-timer-id-1"
+
+  def schedule_daily(self, command: str, args: list[str], run_time: time) -> None:
+    # TODO: Implement Android daily scheduling
+    raise NotImplementedError("Android daily scheduling not yet implemented")
 
   def cancel_timer(self, timer_id: str) -> None:
     # TODO: Implement timer cancellation

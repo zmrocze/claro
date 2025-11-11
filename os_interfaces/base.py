@@ -1,8 +1,11 @@
 """Abstract base classes for OS-specific interfaces"""
 
 from abc import ABC, abstractmethod
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import time
 from typing import Any, Callable, Optional
+
+from backend.notification_schedule.config_parser import TimeRange
 
 
 class NotificationManager(ABC):
@@ -27,22 +30,39 @@ class NotificationManager(ABC):
     raise NotImplementedError
 
 
+@dataclass
+class TimerConfig:
+  timing: TimeRange | time
+  command: str
+  args: list[str] = field(default_factory=list)
+  name: str | None = None
+
+
 class TimerManager(ABC):
   """Abstract base class for timer/alarm management"""
 
   @abstractmethod
-  def schedule_timer(
-    self, time: datetime, command: str, args: Optional[list[str]] = None
-  ) -> str:
-    """Schedule a timer to run a command at a specific time.
+  def schedule_timer(self, timer_config: TimerConfig) -> str:
+    """Schedule a one-shot timer to run a command.
 
     Args:
-      time: When to run the command
-      command: Path to executable or command to run
-      args: Optional list of command arguments
+      timer_config: Configuration with timing (time or TimeRange), command, args, and optional name
 
     Returns:
       Timer ID that can be used to cancel the timer
+    """
+    raise NotImplementedError
+
+  @abstractmethod
+  def schedule_daily(self, command: str, args: list[str], run_time: time) -> None:
+    """Schedule a daily recurring timer to run a command.
+
+    This method is idempotent - safe to call multiple times.
+
+    Args:
+      command: Path to executable or command to run
+      args: List of command arguments
+      run_time: Time of day to run the command daily
     """
     raise NotImplementedError
 
