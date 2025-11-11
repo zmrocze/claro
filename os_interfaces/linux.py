@@ -98,10 +98,28 @@ class LinuxTimerManager(TimerManager):
     return base
 
   def _service_content(
-    self, base: str, command: str, args: list[str], after: str | None = None
+    self,
+    base: str,
+    command: str,
+    args: list[str],
+    after: str | None = None,
+    cleanup: bool = False,
   ) -> str:
     after_line = f"After={after}.timer\n" if after else ""
     exec_line = " ".join([command, *args])
+
+    # Add cleanup for one-shot notification timers
+    cleanup_line = ""
+    if cleanup:
+      unit_dir = self._user_unit_dir()
+      cleanup_line = (
+        f"ExecStopPost=/bin/sh -c '"
+        f"systemctl --user stop {base}.timer; "
+        f"systemctl --user clean --what=all {base}.service {base}.timer; "
+        f"rm -f {unit_dir}/{base}.service {unit_dir}/{base}.timer; "
+        f"systemctl --user daemon-reload'\n"
+      )
+
     return (
       "[Unit]\n"
       f"Description={self.app_name} service {base}\n"
@@ -109,6 +127,7 @@ class LinuxTimerManager(TimerManager):
       "\n[Service]\n"
       "Type=oneshot\n"
       f"ExecStart={exec_line}\n"
+      f"{cleanup_line}"
       "\n[Install]\n"
       f"WantedBy={self.app_name}.target\n"
     )
@@ -154,7 +173,9 @@ class LinuxTimerManager(TimerManager):
       on_cal = f"*-*-* {t.strftime('%H:%M')}:00"
       randomized = None
 
-    service_txt = self._service_content(base, timer_config.command, timer_config.args)
+    service_txt = self._service_content(
+      base, timer_config.command, timer_config.args, cleanup=True
+    )
     timer_txt = self._timer_content(base, on_cal, base, randomized)
 
     with self._connect_systemd() as m:

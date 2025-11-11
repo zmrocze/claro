@@ -107,6 +107,11 @@ class TestLinuxTimerManager:
 
     assert timer_id is not None
     assert mock_write.call_count == 2  # service + timer files
+    # Check service unit includes cleanup
+    service_content = mock_write.call_args_list[0][0][0]
+    assert "ExecStopPost" in service_content
+    assert "systemctl --user clean --what=all" in service_content
+    assert "daemon-reload" in service_content
     # Check OnCalendar format in timer unit
     timer_content = mock_write.call_args_list[1][0][0]
     assert "OnCalendar=*-*-* 14:30:00" in timer_content
