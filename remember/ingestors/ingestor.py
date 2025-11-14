@@ -8,6 +8,7 @@ handling for specific files.
 import csv
 import io
 from dataclasses import dataclass
+import json
 from pathlib import Path
 from typing import Dict, List, Sequence, Union
 
@@ -248,17 +249,8 @@ class ConditionalFilenameTransform(TransformComponent):
     return result_nodes
 
 
-class CheckmarksCsv(TransformComponent):
-  """Transform that parses a checkmarks CSV from habits android app format and creates nodes for positive dates.
-
-  Expected CSV format:
-  - First row: columns (first column is date, rest are category names)
-  - Subsequent rows: date values followed by category counts
-  - Count encoding: 2 means count of 1 (positive), -1/0/1 means count of 0 (negative/neutral)
-
-  For each category, this transform collects all dates with count of 1 (value 2)
-  and creates a node for each positive date with text "<date>: <category name>".
-  """
+class CSVNodeParser(TransformComponent):
+  """Transform that parses a CSV file and creates nodes for each row."""
 
   def __call__(self, nodes: Sequence[BaseNode], **kwargs) -> Sequence[BaseNode]:
     """Parse CSV content and create nodes for positive dates per category.
@@ -281,28 +273,72 @@ class CheckmarksCsv(TransformComponent):
 
       if len(rows) < 2:
         raise ValueError("CSV must have at least 2 rows")
-      header = rows[0]
-      if len(header) < 3:
-        raise ValueError(
-          "CSV must have at least 3 columns: date, column, <empty column after trailing comma> "
+
+      result_nodes.extend(self._process_csv(rows, node.metadata))
+
+    return result_nodes
+
+  def _process_csv(self, rows: list[list[str]], metadata: dict) -> Sequence[BaseNode]:
+    """Process CSV content and create nodes."""
+
+    def not_empty(s: str) -> bool:
+      return s != "" and not s.isspace()
+
+    categories = rows[0]
+    assert len(categories) > 1
+
+    result_nodes = []
+    for row in rows[1:]:
+      json_d = {
+        cat: val
+        for cat, val in zip(categories, row)
+        if not_empty(cat) or not_empty(val)
+      }
+      result_nodes.append(
+        TextNode(
+          text=json.dumps(json_d),
+          metadata=metadata,
         )
-      categories = header[1:-2]
-      assert (
-        header[-1] == " "
-      )  # CSV is expected to have empty column due to trailing comma
+      )
+    return result_nodes
 
-      for row in rows[1:]:
-        date_value = row[0]
-        assert row[-1] == " "
-        for cat, val in zip(categories, row[1:]):
-          if int(val) == 2:
-            result_nodes.append(
-              TextNode(
-                text=f"{date_value}: {cat}",
-                metadata=node.metadata,
-              )
+
+class CheckmarksCsv(CSVNodeParser):
+  """Transform that parses a checkmarks CSV from habits android app format and creates nodes for positive dates.
+
+  Expected CSV format:
+  - First row: columns (first column is date, rest are category names)
+  - Subsequent rows: date values followed by category counts
+  - Count encoding: 2 means count of 1 (positive), -1/0/1 means count of 0 (negative/neutral)
+
+  For each category, this transform collects all dates with count of 1 (value 2)
+  and creates a node for each positive date with text "<date>: <category name>".
+  """
+
+  def _process_csv(self, rows: list[list[str]], metadata: dict) -> Sequence[BaseNode]:
+    """Process CSV content and create nodes for positive dates per category."""
+    header = rows[0]
+    if len(header) < 3:
+      raise ValueError(
+        "CSV must have at least 3 columns: date, column, <empty column after trailing comma> "
+      )
+    categories = header[1:-2]
+    assert (
+      header[-1] == " "
+    )  # CSV is expected to have empty column due to trailing comma
+
+    result_nodes = []
+    for row in rows[1:]:
+      date_value = row[0]
+      assert row[-1] == " "
+      for cat, val in zip(categories, row[1:]):
+        if int(val) == 2:
+          result_nodes.append(
+            TextNode(
+              text=f"{date_value}: {cat}",
+              metadata=metadata,
             )
-
+          )
     return result_nodes
 
 
@@ -326,47 +362,31 @@ def main_ingestion_pipeline(
       Configured IngestionPipeline ready to process documents
   """
   # All node transforms in one place.
-  # Note: File readers (PDFReader, DocxReader, etc.) are already handled by SimpleDirectoryReader
   extension_transforms: Dict[str, TransformComponent] = {
-    # Specialized node parsers
     ".md": MarkdownNodeParser(),
     ".html": HTMLNodeParser(),
     ".json": JSONNodeParser(),
-    # Image extensions - extract only metadata, not content
-    # ".jpg": ImageMetadataTransform(),
-    # ".jpeg": ImageMetadataTransform(),
-    # ".png": ImageMetadataTransform(),
-    # ".gif": ImageMetadataTransform(),
-    # ".bmp": ImageMetadataTransform(),
-    # ".svg": ImageMetadataTransform(),
-    # ".webp": ImageMetadataTransform(),
+    ".csv": ConditionalFilenameTransform(
+      filename_transforms={
+        "Checkmarks.csv": CheckmarksCsv(),
+        "Scores.csv": SkipTransform(),
+      }
+      if enable_custom
+      else {},
+      pass_through_behavior=PassThroughDefault(CSVNodeParser()),
+    ),
+    ".txt": ConditionalFilenameTransform(
+      filename_transforms={"Cache.txt": LineSplitTransform()} if enable_custom else {},
+      pass_through_behavior=PassThroughDefault(SimpleFileNodeParser()),
+    ),
   }
 
-  # Build and return transformation pipeline as single expression
-  transformations_list: Sequence[TransformComponent] = (
-    [
-      ConditionalExtensionTransform(
-        extension_transforms=extension_transforms,
-        pass_through_behavior=PassThroughDefault(SimpleFileNodeParser()),
-      ),
-    ]
-    + (
-      [
-        ConditionalFilenameTransform(
-          filename_transforms={
-            "Cache.txt": LineSplitTransform(),
-            "Checkmarks.csv": CheckmarksCsv(),
-            "Scores.csv": SkipTransform(),
-          },
-          pass_through_behavior=PassThroughUnchanged(),
-        )
-      ]
-      if enable_custom
-      else []
-    )
-    + [
-      SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap),
-    ]
-  )
+  transformations_list: Sequence[TransformComponent] = [
+    ConditionalExtensionTransform(
+      extension_transforms=extension_transforms,
+      pass_through_behavior=PassThroughDefault(SimpleFileNodeParser()),
+    ),
+    SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap),
+  ]
 
   return IngestionPipeline(transformations=list(transformations_list))

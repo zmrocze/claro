@@ -94,7 +94,6 @@ def _group_markdown_lines_by_headers(
 
   def yield_group(group):
     """Helper to yield a NewChunk from a group of lines."""
-    logger.info("Yielding group of lines")
     added_text = "".join(value for _, value in group)
     extra_metadata = {
       "header_path": "/" + "/".join(list(line_to_headers.get(group[0][0], [])))
@@ -109,26 +108,21 @@ def _group_markdown_lines_by_headers(
 
   for line_no, line_value in added_lines_with_nos:
     line_headers = tuple(line_to_headers.get(line_no, []))
-    logger.info(f"Line {line_no} has headers {line_headers}")
 
     if current_headers is None or line_headers == current_headers:
       # Same header context, add to current group
-      logger.info("Same header context, adding to current group")
       current_group.append((line_no, line_value))
       current_headers = line_headers
     else:
       # Different header context, yield current group and start new one
-      logger.info("Different header context, yielding current group")
       if current_group:
         yield yield_group(current_group)
 
       # Start new group
-      logger.info("Starting new group")
       current_group = [(line_no, line_value)]
       current_headers = line_headers
 
   # Yield the final group
-  logger.info("Yielding final group")
   if current_group:
     yield yield_group(current_group)
 
@@ -202,56 +196,74 @@ class CommitDiff:
   def iter_new_chunks(self):
     """Iterate over new code chunks (added lines) in the commit.
 
-    For markdown files, extracts header information for added/changed lines.
+    Applies file-type-specific transformations:
+    - Markdown files: groups lines by header context
+    - Other files: yields all added lines as single chunks
 
     Yields:
         NewChunk: Each chunk with filepath, added text, and optional metadata
     """
-    print("iter_new_chunks")
     for patched_file in self.patch_set:
-      # Skip deleted and renamed files
       if patched_file.is_removed_file or patched_file.is_rename:
         continue
 
       filepath = Path(patched_file.path)
-      is_markdown = filepath.suffix.lower() in (".md", ".markdown")
-
-      # For markdown files, read the current file content and collect line numbers
-      file_content = None
-      if is_markdown and filepath.exists():
-        try:
-          file_content = filepath.read_text(encoding="utf-8")
-        except Exception:
-          # If we can't read the file, proceed without markdown metadata
-          file_content = None
-          logger.warning(f"Failed to read file content for {filepath}")
 
       for hunk in patched_file:
-        # Collect added lines with their line numbers (preserving order)
-        added_lines_with_nos = []
-        for line in hunk:
-          if line.is_added and line.target_line_no:
-            added_lines_with_nos.append((line.target_line_no, line.value))
+        added_lines_with_nos = [
+          (line.target_line_no, line.value)
+          for line in hunk
+          if line.is_added and line.target_line_no
+        ]
 
-        if not added_lines_with_nos:
-          continue
+        if added_lines_with_nos:
+          yield from self._process_hunk_by_file_type(filepath, added_lines_with_nos)
 
-        # For non-markdown files, yield all added lines as a single chunk
-        if not is_markdown or not file_content:
-          added_text = "".join(value for _, value in added_lines_with_nos)
-          yield NewChunk(filepath=filepath, added_text=added_text, extra_metadata=None)
-          continue
+  def _process_hunk_by_file_type(
+    self, filepath: Path, added_lines_with_nos: list[tuple[int, str]]
+  ):
+    """Process added lines based on file extension.
 
-        # For markdown files, group consecutive lines by header context
-        try:
-          yield from _group_markdown_lines_by_headers(
-            filepath, file_content, added_lines_with_nos
-          )
-        except Exception:
-          logger.warning("Failed to extract markdown headers for diff.")
-          # If markdown parsing fails, yield all lines as a single chunk without metadata
-          added_text = "".join(value for _, value in added_lines_with_nos)
-          yield NewChunk(filepath=filepath, added_text=added_text, extra_metadata=None)
+    Args:
+        filepath: Path to the file
+        added_lines_with_nos: List of (line_number, line_value) tuples
+
+    Yields:
+        NewChunk: Processed chunks based on file type
+    """
+    if filepath.suffix.lower() in (".md", ".markdown"):
+      yield from self._process_markdown_hunk(filepath, added_lines_with_nos)
+    else:
+      yield from self._process_generic_hunk(filepath, added_lines_with_nos)
+
+  def _process_markdown_hunk(
+    self, filepath: Path, added_lines_with_nos: list[tuple[int, str]]
+  ):
+    """Process markdown file hunk by grouping lines by header context."""
+    if not filepath.exists():
+      yield from self._process_generic_hunk(filepath, added_lines_with_nos)
+      return
+
+    try:
+      file_content = filepath.read_text(encoding="utf-8")
+      yield from _group_markdown_lines_by_headers(
+        filepath, file_content, added_lines_with_nos
+      )
+    except Exception:
+      logger.warning(
+        f"Failed to process markdown headers for {filepath}, falling back to generic processing"
+      )
+      yield from self._process_generic_hunk(filepath, added_lines_with_nos)
+
+  def _process_generic_hunk(
+    self, filepath: Path, added_lines_with_nos: list[tuple[int, str]]
+  ):
+    """Process generic file hunk by yielding all added lines as a single chunk."""
+    yield NewChunk(
+      filepath=filepath,
+      added_text="".join(value for _, value in added_lines_with_nos),
+      extra_metadata=None,
+    )
 
   def iter_sentence_nodes(self):
     """Iterate over sentence-split nodes from new chunks.

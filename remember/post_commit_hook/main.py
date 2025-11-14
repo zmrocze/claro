@@ -51,19 +51,11 @@ def main():
     # Get first line of commit message
     first_line = commit_diff.message.split("\n")[0]
     print(f"  Message: {first_line}")
-    print(f"commit_diff.patch_set: {commit_diff.patch_set}")
-    print(f"commit_diff.patch_set: {type(commit_diff.patch_set)}")
     # Count files (excluding deleted/renamed)
     num_files = sum(
       1 for f in commit_diff.patch_set if not (f.is_removed_file or f.is_rename)
     )
     print(f"  Files changed: {num_files}")
-
-    for file in commit_diff.patch_set:
-      if file.is_removed_file or file.is_rename:
-        continue
-      status = "added" if file.is_added_file else "modified"
-      print(f"    - {file.path} ({status}): +{file.added} -{file.removed}")
 
     nodes = list(commit_diff.iter_sentence_nodes())
 

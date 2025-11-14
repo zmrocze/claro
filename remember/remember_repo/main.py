@@ -116,6 +116,9 @@ def main():
   )
   parser.add_argument("--api-key", help="Zep API key")
   parser.add_argument("--user-id", help="Zep user ID")
+  parser.add_argument(
+    "--only-print", action="store_true", help="Only print nodes without sending to Zep"
+  )
   args = parser.parse_args()
 
   repo_path = args.repo_path.resolve()
