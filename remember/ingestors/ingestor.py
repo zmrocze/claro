@@ -322,7 +322,7 @@ class CheckmarksCsv(CSVNodeParser):
       raise ValueError(
         "CSV must have at least 3 columns: date, column, <empty column after trailing comma> "
       )
-    categories = header[1:-2]
+    categories = header[1:-1]  # Skip date column and trailing empty column
     assert (
       header[-1] == " "
     )  # CSV is expected to have empty column due to trailing comma

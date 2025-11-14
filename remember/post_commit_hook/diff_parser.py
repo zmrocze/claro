@@ -9,12 +9,15 @@ from unidiff import PatchSet
 from .diff_types import CommitDiff
 
 
-def parse_commit_diff(commit_hash: str = "HEAD", repo_path: str = ".") -> CommitDiff:
+def parse_commit_diff(
+  commit_hash: str = "HEAD", repo_path: str = ".", enable_custom: bool = False
+) -> CommitDiff:
   """Parse commit diff using GitPython and unidiff.
 
   Args:
       commit_hash: The commit hash or reference (default: "HEAD")
       repo_path: Path to the git repository (default: current directory)
+      enable_custom: If True, enable custom handling for specific files (default: False)
 
   Returns:
       CommitDiff with commit metadata and unidiff PatchSet
@@ -55,4 +58,5 @@ def parse_commit_diff(commit_hash: str = "HEAD", repo_path: str = ".") -> Commit
     timestamp=timestamp,
     message=message,
     patch_set=patch_set,
+    enable_custom=enable_custom,
   )

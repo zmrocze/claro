@@ -26,13 +26,19 @@ parser.add_argument("--user-id", help="Zep user ID")
 parser.add_argument(
   "--only-print", action="store_true", help="Only print nodes without sending to Zep"
 )
+parser.add_argument(
+  "--custom",
+  action="store_true",
+  help="Enable custom handling for specific files like Checkmarks.csv and Cache.txt",
+)
 
 
 def main():
   """Parse and print the structured diff from the latest commit."""
   try:
+    args, _ = parser.parse_known_args()
     # Parse the commit diff (default repo_path="." will work from git repo)
-    commit_diff = parse_commit_diff("HEAD")
+    commit_diff = parse_commit_diff("HEAD", enable_custom=args.custom)
 
     # Convert to dict for JSON serialization
     diff_dict = commit_diff.to_dict()
@@ -62,7 +68,6 @@ def main():
     print(f"  Nodes: {len(nodes)}")
 
     if len(nodes) > 0:
-      args, _ = parser.parse_known_args()
       if args.only_print:
         print_action(nodes)
       else:

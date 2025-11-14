@@ -7,10 +7,14 @@ This module only adds commit metadata wrapper.
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import csv
+import io
 
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.schema import Document
 from unidiff import PatchSet
+
+from remember.ingestors.ingestor import main_ingestion_pipeline
 
 import logging
 
@@ -137,6 +141,7 @@ class CommitDiff:
       timestamp: ISO format timestamp
       message: Commit message
       patch_set: unidiff PatchSet containing all file diffs
+      enable_custom: If True, enable custom handling for specific files
   """
 
   commit_hash: str
@@ -144,6 +149,7 @@ class CommitDiff:
   timestamp: str
   message: str
   patch_set: PatchSet
+  enable_custom: bool = False
 
   def to_dict(self):
     """Convert to dict for JSON serialization.
@@ -233,6 +239,14 @@ class CommitDiff:
     """
     if filepath.suffix.lower() in (".md", ".markdown"):
       yield from self._process_markdown_hunk(filepath, added_lines_with_nos)
+    elif filepath.suffix.lower() == ".csv":
+      yield from self._process_csv_hunk(filepath, added_lines_with_nos)
+    elif (
+      filepath.suffix.lower() == ".txt"
+      and self.enable_custom
+      and filepath.name == "Cache.txt"
+    ):
+      yield from self._process_cache_txt_hunk(filepath, added_lines_with_nos)
     else:
       yield from self._process_generic_hunk(filepath, added_lines_with_nos)
 
@@ -264,6 +278,96 @@ class CommitDiff:
       added_text="".join(value for _, value in added_lines_with_nos),
       extra_metadata=None,
     )
+
+  def _process_csv_hunk(
+    self, filepath: Path, added_lines_with_nos: list[tuple[int, str]]
+  ):
+    """Process CSV file hunk.
+
+    If the header row changed, process the entire file.
+    Otherwise, process only the added/changed rows as JSON.
+    """
+
+    try:
+      changed_line_numbers = {line_no for line_no, _ in added_lines_with_nos}
+      header_changed = 1 in changed_line_numbers
+
+      if header_changed:
+        yield from self._process_entire_csv_file(filepath)
+      else:
+        yield from self._process_csv_rows(filepath, added_lines_with_nos)
+    except Exception:
+      logger.warning(
+        f"Failed to process CSV file {filepath}, falling back to generic processing"
+      )
+      yield from self._process_generic_hunk(filepath, added_lines_with_nos)
+
+  def _process_entire_csv_file(self, filepath: Path):
+    """Process entire CSV file when header has changed."""
+    file_content = filepath.read_text(encoding="utf-8")
+    yield from self._process_csv_content(file_content, filepath)
+
+  def _process_csv_rows(
+    self, filepath: Path, added_lines_with_nos: list[tuple[int, str]]
+  ):
+    """Process individual CSV rows using ingestor pipeline.
+
+    Constructs single CSV document with header + all changed rows.
+    """
+    file_content = filepath.read_text(encoding="utf-8")
+    csv_reader = csv.reader(io.StringIO(file_content))
+    rows = list(csv_reader)
+
+    if len(rows) < 1:
+      return
+
+    header = rows[0]
+
+    if not added_lines_with_nos:
+      return
+
+    # Construct single CSV with header + all changed rows
+    csv_output = io.StringIO()
+    writer = csv.writer(csv_output)
+    writer.writerow(header)
+
+    for _, line_value in added_lines_with_nos:
+      row = next(csv.reader([line_value]))
+      writer.writerow(row)
+
+    csv_content = csv_output.getvalue()
+    yield from self._process_csv_content(csv_content, filepath)
+
+  def _process_csv_content(self, csv_content: str, filepath: Path):
+    """Process CSV content using main_ingestion_pipeline."""
+    doc = Document(
+      text=csv_content,
+      metadata={"file_path": str(filepath), "file_name": filepath.name},
+    )
+
+    pipeline = main_ingestion_pipeline(
+      enable_custom=self.enable_custom, chunk_size=1024, chunk_overlap=0
+    )
+    nodes = pipeline.run(documents=[doc])
+
+    for node in nodes:
+      yield NewChunk(
+        filepath=filepath,
+        added_text=node.get_content(),
+        extra_metadata=None,
+      )
+
+  def _process_cache_txt_hunk(
+    self, filepath: Path, added_lines_with_nos: list[tuple[int, str]]
+  ):
+    """Process Cache.txt file by splitting into individual lines."""
+    for _, line_value in added_lines_with_nos:
+      if line_value.strip():
+        yield NewChunk(
+          filepath=filepath,
+          added_text=line_value,
+          extra_metadata=None,
+        )
 
   def iter_sentence_nodes(self):
     """Iterate over sentence-split nodes from new chunks.
