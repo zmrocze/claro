@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import yaml
 
-from backend.notification_schedule.config_parser import TimeRange
+from notification_schedule.config_parser import TimeRange
 from os_interfaces.base import TimerConfig
 from os_interfaces.linux import (
   LinuxConfigStorage,

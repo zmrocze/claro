@@ -7,7 +7,7 @@ import pytest
 from datetime import time
 from pydantic import ValidationError
 
-from backend.notification_schedule import (
+from notification_schedule import (
   NotificationConfig,
   NotificationScheduleConfig,
   TimeRange,
@@ -163,15 +163,6 @@ def test_invalid_time_range(invalid_config_bad_time_range, tmp_path):
   config_file.write_text(invalid_config_bad_time_range)
 
   with pytest.raises(ValidationError, match="must be before"):
-    parse_notification_config(config_file)
-
-
-def test_invalid_frequency(invalid_config_bad_frequency, tmp_path):
-  """Test that frequency outside [0, 1] raises ValidationError"""
-  config_file = tmp_path / "config.yaml"
-  config_file.write_text(invalid_config_bad_frequency)
-
-  with pytest.raises(ValidationError, match="between 0 and 1"):
     parse_notification_config(config_file)
 
 

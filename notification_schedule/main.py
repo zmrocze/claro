@@ -13,7 +13,7 @@ from pathlib import Path
 
 from platformdirs import user_config_dir
 
-from backend.notification_schedule.config_parser import (
+from notification_schedule.config_parser import (
   NotificationConfig,
   TimeRange,
   parse_notification_config,

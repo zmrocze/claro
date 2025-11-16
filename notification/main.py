@@ -17,7 +17,7 @@ from pathlib import Path
 
 from platformdirs import user_config_dir
 from backend.agent.agent import new_agent
-from backend.notification_schedule import parse_notification_config
+from notification_schedule import parse_notification_config
 from os_interfaces.linux import LinuxNotificationManager
 
 logging.basicConfig(

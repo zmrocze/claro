@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import time
 from typing import Any, Callable, Optional
 
-from backend.notification_schedule.config_parser import TimeRange
+from notification_schedule.config_parser import TimeRange
 
 
 class NotificationManager(ABC):

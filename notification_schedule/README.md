@@ -114,7 +114,7 @@ nix build .#notification-scheduler
 from datetime import time
 from os_interfaces.linux import LinuxTimerManager
 from os_interfaces.base import TimerConfig
-from backend.notification_schedule.config_parser import TimeRange
+from notification_schedule.config_parser import TimeRange
 
 # Initialize timer manager
 timer_mgr = LinuxTimerManager(app_name="claro")

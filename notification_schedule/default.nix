@@ -35,11 +35,12 @@ stdenv.mkDerivation {
     mkdir -p $out/share/notification-scheduler
     
     # Copy the scheduler script
-    cp $src/backend/notification_schedule/scheduler.py $out/share/notification-scheduler/
+    cp $src/notification_schedule/scheduler.py $out/share/notification-scheduler/
     
-    # Copy backend and os_interfaces source code
+    # Copy backend, os_interfaces, and notification_schedule source code
     cp -r $src/backend $out/share/notification-scheduler/
     cp -r $src/os_interfaces $out/share/notification-scheduler/
+    cp -r $src/notification_schedule $out/share/notification-scheduler/
     
     # Create wrapper that uses Python environment
     makeWrapper ${pythonEnv}/bin/python $out/bin/notification-scheduler \

@@ -147,7 +147,7 @@
           };
           
           # Build notification scheduler
-          notification-scheduler = pkgs.callPackage ./backend/notification_schedule {
+          notification-scheduler = pkgs.callPackage ./notification_schedule {
             inherit pythonSet workspace;
             python3 = python;
           };

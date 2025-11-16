@@ -12,7 +12,7 @@ from platformdirs import user_config_dir
 from pystemd.dbuslib import DBus
 from pystemd.systemd1 import Manager
 
-from backend.notification_schedule.config_parser import TimeRange
+from notification_schedule.config_parser import TimeRange
 from .base import ConfigStorage, NotificationManager, TimerConfig, TimerManager
 
 logger = logging.getLogger(__name__)
