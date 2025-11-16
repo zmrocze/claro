@@ -10,6 +10,8 @@ from contextlib import asynccontextmanager
 import uvicorn
 import logging
 import os
+import asyncio
+from datetime import time
 from pathlib import Path
 from asgi_correlation_id import CorrelationIdFilter
 
@@ -20,6 +22,7 @@ from backend.middleware import ErrorHandlingMiddleware, setup_logging_middleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
+from os_interfaces.linux import LinuxTimerManager
 
 # Configure logging
 logging.basicConfig(
@@ -33,13 +36,25 @@ for handler in logging.root.handlers:
   handler.addFilter(CorrelationIdFilter(uuid_length=4))
 
 
+async def _schedule_daily_notifications():
+  """Schedule the notification_schedule program to run daily."""
+  try:
+    timer_mgr = LinuxTimerManager(app_name="claro")
+    run_time = time(hour=3, minute=0)
+    timer_mgr.schedule_daily(
+      command="notification_schedule", args=[], run_time=run_time
+    )
+    logger.info("Daily notification scheduler configured")
+  except Exception as e:
+    logger.error(f"Failed to schedule daily notifications: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
   """Manage application lifecycle"""
   logger.info("Starting Claro backend...")
-  # Initialize resources here (Zep, API clients, etc.)
+  asyncio.create_task(_schedule_daily_notifications())
   yield
-  # Cleanup
   logger.info("Shutting down Claro backend...")
 
 
