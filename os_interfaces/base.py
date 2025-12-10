@@ -2,10 +2,16 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import time
+from datetime import datetime, time
 from typing import Any, Callable, Optional
 
-from notification_schedule.config_parser import TimeRange
+
+@dataclass
+class ScheduleTimeRange:
+  """Time range with specific dates for scheduling"""
+
+  from_time: datetime
+  to_time: datetime
 
 
 class NotificationManager(ABC):
@@ -32,7 +38,7 @@ class NotificationManager(ABC):
 
 @dataclass
 class TimerConfig:
-  timing: TimeRange | time
+  timing: datetime | ScheduleTimeRange
   command: str
   args: list[str] = field(default_factory=list)
   name: str | None = None

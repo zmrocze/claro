@@ -2,7 +2,7 @@
 
 import logging
 from contextlib import contextmanager
-from datetime import datetime, time
+from datetime import time
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -12,8 +12,13 @@ from platformdirs import user_config_dir
 from pystemd.dbuslib import DBus
 from pystemd.systemd1 import Manager
 
-from notification_schedule.config_parser import TimeRange
-from .base import ConfigStorage, NotificationManager, TimerConfig, TimerManager
+from .base import (
+  ConfigStorage,
+  NotificationManager,
+  ScheduleTimeRange,
+  TimerConfig,
+  TimerManager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -155,22 +160,20 @@ class LinuxTimerManager(TimerManager):
     t = timer_config.timing
     name_gist = (
       f"{t.from_time.strftime('%H%M')}-{t.to_time.strftime('%H%M')}"
-      if isinstance(t, TimeRange)
+      if isinstance(t, ScheduleTimeRange)
       else t.strftime("%H%M")
     )
     base = self._unit_name("notification", timer_config.name, name_gist)
 
     # systemd time expression and optional randomization
-    if isinstance(t, TimeRange):
-      on_cal = f"*-*-* {t.from_time.strftime('%H:%M')}:00"
-      # duration in seconds between from and to
-      delta = (
-        datetime.combine(datetime.today(), t.to_time)
-        - datetime.combine(datetime.today(), t.from_time)
-      ).seconds
+    if isinstance(t, ScheduleTimeRange):
+      # ScheduleTimeRange with specific dates
+      on_cal = f"{t.from_time.strftime('%Y-%m-%d %H:%M')}:00"
+      delta = (t.to_time - t.from_time).seconds
       randomized = f"{delta}s"
     else:
-      on_cal = f"*-*-* {t.strftime('%H:%M')}:00"
+      # Single datetime
+      on_cal = f"{t.strftime('%Y-%m-%d %H:%M')}:00"
       randomized = None
 
     service_txt = self._service_content(

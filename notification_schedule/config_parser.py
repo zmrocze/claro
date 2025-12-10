@@ -11,7 +11,7 @@ from pydantic import BaseModel, field_validator, model_validator
 
 
 class TimeRange(BaseModel):
-  """Time range for notification scheduling"""
+  """Time range for notification scheduling (time-of-day only, no date)"""
 
   from_time: time
   to_time: time

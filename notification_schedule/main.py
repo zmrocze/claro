@@ -9,6 +9,7 @@ import argparse
 import logging
 import random
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from platformdirs import user_config_dir
@@ -18,7 +19,7 @@ from notification_schedule.config_parser import (
   TimeRange,
   parse_notification_config,
 )
-from os_interfaces.base import TimerConfig
+from os_interfaces.base import ScheduleTimeRange, TimerConfig
 from os_interfaces.linux import LinuxTimerManager
 
 logging.basicConfig(
@@ -65,8 +66,20 @@ def schedule_notification(
     # Generate unique name for multiple schedules
     timer_name = f"{notification_name}-{i}" if num_schedules > 1 else notification_name
 
+    # Convert time to datetime for tomorrow
+    tomorrow = (datetime.now() + timedelta(days=1)).date()
+    if isinstance(config.timing, TimeRange):
+      # Convert TimeRange to ScheduleTimeRange with tomorrow's date
+      adjusted_timing = ScheduleTimeRange(
+        from_time=datetime.combine(tomorrow, config.timing.from_time),
+        to_time=datetime.combine(tomorrow, config.timing.to_time),
+      )
+    else:
+      # Convert time to datetime with tomorrow's date
+      adjusted_timing = datetime.combine(tomorrow, config.timing)
+
     timer_config = TimerConfig(
-      timing=config.timing,
+      timing=adjusted_timing,
       command=notification_command,
       args=[notification_name],
       name=timer_name,
