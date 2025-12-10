@@ -134,8 +134,8 @@
             inherit pythonSet workspace;
           };
           
-          # Build main Claro application
-          claro = pkgs.callPackage ./. {
+          # Build main Claro application (just the app)
+          claro_app = pkgs.callPackage ./claro_app.nix {
             inherit frontend backend;
             python3 = python;
           };
@@ -150,6 +150,11 @@
           notification-scheduler = pkgs.callPackage ./notification_schedule {
             inherit pythonSet workspace;
             python3 = python;
+          };
+          
+          # Build combined Claro package (app + notifications)
+          claro = pkgs.callPackage ./. {
+            inherit claro_app notify-with-carlo notification-scheduler;
           };
           
           # Build git-remember-hook (post-commit hook)
@@ -176,7 +181,7 @@
       packages = {
         # Main Claro desktop application
         default = claro;
-        inherit frontend backend claro notify-with-carlo notification-scheduler git-remember-hook remember-repo remember;
+        inherit frontend backend claro_app claro notify-with-carlo notification-scheduler git-remember-hook remember-repo remember;
         
         # Legacy dev environment
         dev-env = pythonSet.mkVirtualEnv "claro-dev-env" workspace.deps.all;

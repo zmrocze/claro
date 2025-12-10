@@ -20,11 +20,11 @@ stdenv.mkDerivation {
   nativeBuildInputs = [ makeWrapper ];
   
   src = lib.fileset.toSource {
-    root = ../..;
+    root = ../.;
     fileset = lib.fileset.unions [
       ./.
-      ../..
-      ../../os_interfaces
+      ../backend
+      ../os_interfaces
     ];
   };
   
@@ -35,7 +35,7 @@ stdenv.mkDerivation {
     mkdir -p $out/share/notification-scheduler
     
     # Copy the scheduler script
-    cp $src/notification_schedule/scheduler.py $out/share/notification-scheduler/
+    cp $src/notification_schedule/main.py $out/share/notification-scheduler/
     
     # Copy backend, os_interfaces, and notification_schedule source code
     cp -r $src/backend $out/share/notification-scheduler/
@@ -44,7 +44,7 @@ stdenv.mkDerivation {
     
     # Create wrapper that uses Python environment
     makeWrapper ${pythonEnv}/bin/python $out/bin/notification-scheduler \
-      --add-flags "$out/share/notification-scheduler/scheduler.py" \
+      --add-flags "$out/share/notification-scheduler/main.py" \
       --set PYTHONPATH "$out/share/notification-scheduler:${pythonEnv}/${python3.sitePackages}"
     
     runHook postInstall
