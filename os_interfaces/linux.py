@@ -205,6 +205,13 @@ class LinuxTimerManager(TimerManager):
         self._reload(m)
       else:
         logger.info("Daily scheduler units already present")
+        # Check if systemd knows about the timer; reload if not
+        try:
+          m.Manager.GetUnit(f"{base}.timer".encode())
+        except Exception:
+          logger.info("Units exist on disk but not loaded in systemd, reloading")
+          self._reload(m)
+
       self._enable_and_start_timer(m, base)
 
   def cancel_timer(self, timer_id: str) -> None:
