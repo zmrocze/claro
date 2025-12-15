@@ -64,7 +64,7 @@ def error_handler(exc: Exception) -> JSONResponse:
     case RateLimitExceeded() as e:
       # Rate limit exceeded
       logger.warning(f"Rate limit exceeded: {e}")
-      carlo_error = AppError(
+      claro_error = AppError(
         description="Rate limit exceeded. Please try again later.",
         name="RATE_LIMIT_EXCEEDED",
         source="rate_limiter",
@@ -72,26 +72,26 @@ def error_handler(exc: Exception) -> JSONResponse:
       )
       return JSONResponse(
         status_code=429,
-        content=carlo_error.to_response().model_dump(),
+        content=claro_error.to_response().model_dump(),
       )
 
     case HTTPException() as e:
       # Convert FastAPI HTTPException to AppError format
       logger.error(f"HTTP error {e.status_code}: {e.detail}")
-      carlo_error = AppError(
+      claro_error = AppError(
         description=str(e.detail),
         name=f"HTTP_{e.status_code}",
         source="http",
       )
       return JSONResponse(
         status_code=e.status_code,
-        content=carlo_error.to_response().model_dump(),
+        content=claro_error.to_response().model_dump(),
       )
 
     case ValueError() as e:
       # Validation errors
       logger.error(f"Validation error: {e}")
-      carlo_error = AppError(
+      claro_error = AppError(
         description=str(e),
         name="VALIDATION_ERROR",
         source="validation",
@@ -99,7 +99,7 @@ def error_handler(exc: Exception) -> JSONResponse:
       )
       return JSONResponse(
         status_code=400,
-        content=carlo_error.to_response().model_dump(),
+        content=claro_error.to_response().model_dump(),
       )
 
     case Exception() as e:
@@ -107,7 +107,7 @@ def error_handler(exc: Exception) -> JSONResponse:
       logger.error(f"Unhandled error: {e}", exc_info=True)
       tb = traceback.format_exc()
 
-      carlo_error = AppError(
+      claro_error = AppError(
         description=str(e),
         name="INTERNAL_ERROR",
         source="unknown",
@@ -115,7 +115,7 @@ def error_handler(exc: Exception) -> JSONResponse:
       )
       return JSONResponse(
         status_code=500,
-        content=carlo_error.to_response().model_dump(),
+        content=claro_error.to_response().model_dump(),
       )
 
 

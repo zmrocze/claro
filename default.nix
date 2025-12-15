@@ -1,7 +1,7 @@
 { symlinkJoin
 , claro_app
-, notify-with-carlo
-, notification-scheduler
+, claro-notification
+, claro-notification-scheduler
 }:
 
 # Combined derivation that includes the main Claro app and notification components
@@ -10,8 +10,8 @@ symlinkJoin {
   
   paths = [
     claro_app
-    notify-with-carlo
-    notification-scheduler
+    claro-notification
+    claro-notification-scheduler
   ];
   
   meta = claro_app.meta // {
@@ -20,8 +20,8 @@ symlinkJoin {
       Claro is a personal AI assistant with a chat interface and notifications.
       This package includes:
       - The main desktop application (claro)
-      - Notification executable (notify-with-carlo)
-      - Notification scheduler (notification-scheduler)
+      - Notification executable (claro-notification)
+      - Notification scheduler (claro-notification-scheduler)
     '';
   };
 }

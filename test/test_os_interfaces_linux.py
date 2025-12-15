@@ -1,15 +1,14 @@
 """Tests for Linux OS interfaces"""
 
 import tempfile
-from datetime import time
+from datetime import datetime, time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import yaml
 
-from notification_schedule.config_parser import TimeRange
-from os_interfaces.base import TimerConfig
+from os_interfaces.base import ScheduleTimeRange, TimerConfig
 from os_interfaces.linux import (
   LinuxConfigStorage,
   LinuxNotificationManager,
@@ -101,7 +100,10 @@ class TestLinuxTimerManager:
 
     manager = LinuxTimerManager(app_name="TestApp")
     cfg = TimerConfig(
-      timing=time(14, 30), command="/usr/bin/echo", args=["test"], name="morning"
+      timing=datetime(2025, 1, 2, 14, 30),
+      command="/usr/bin/echo",
+      args=["test"],
+      name="morning",
     )
     timer_id = manager.schedule_timer(cfg)
 
@@ -114,7 +116,7 @@ class TestLinuxTimerManager:
     assert "daemon-reload" in service_content
     # Check OnCalendar format in timer unit
     timer_content = mock_write.call_args_list[1][0][0]
-    assert "OnCalendar=*-*-* 14:30:00" in timer_content
+    assert "OnCalendar=2025-01-02 14:30:00" in timer_content
     assert "RandomizedDelaySec" not in timer_content
 
   @patch("os_interfaces.linux.DBus")
@@ -135,13 +137,15 @@ class TestLinuxTimerManager:
     mock_manager_class.return_value = mock_manager
 
     manager = LinuxTimerManager(app_name="TestApp")
-    tr = TimeRange(from_time=time(9, 0), to_time=time(11, 0))
+    tr = ScheduleTimeRange(
+      from_time=datetime(2025, 1, 2, 9, 0), to_time=datetime(2025, 1, 2, 11, 0)
+    )
     cfg = TimerConfig(timing=tr, command="/usr/bin/echo", name="flex")
     timer_id = manager.schedule_timer(cfg)
 
     assert timer_id is not None
     timer_content = mock_write.call_args_list[1][0][0]
-    assert "OnCalendar=*-*-* 09:00:00" in timer_content
+    assert "OnCalendar=2025-01-02 09:00:00" in timer_content
     assert "RandomizedDelaySec=7200s" in timer_content  # 2 hours
 
   @patch("os_interfaces.linux.DBus")
@@ -160,8 +164,12 @@ class TestLinuxTimerManager:
     mock_manager_class.return_value = mock_manager
 
     manager = LinuxTimerManager(app_name="claro")
-    cfg1 = TimerConfig(timing=time(9, 0), command="/bin/true", name="test")
-    cfg2 = TimerConfig(timing=time(9, 0), command="/bin/true")  # no name
+    cfg1 = TimerConfig(
+      timing=datetime(2025, 1, 2, 9, 0), command="/bin/true", name="test"
+    )
+    cfg2 = TimerConfig(
+      timing=datetime(2025, 1, 2, 9, 0), command="/bin/true"
+    )  # no name
 
     id1 = manager.schedule_timer(cfg1)
     id2 = manager.schedule_timer(cfg2)
@@ -210,8 +218,8 @@ class TestLinuxTimerManager:
     mock_manager = MagicMock()
     # units already exist
     mock_manager.Manager.ListUnitFiles.return_value = [
-      (b"/path/claro-notification-scheduler.service", b"enabled"),
-      (b"/path/claro-notification-scheduler.timer", b"enabled"),
+      (b"/path/claro-claro-notification-scheduler.service", b"enabled"),
+      (b"/path/claro-claro-notification-scheduler.timer", b"enabled"),
     ]
     mock_manager.Manager.EnableUnitFiles = MagicMock()
     mock_manager.Manager.StartUnit = MagicMock()

@@ -343,11 +343,11 @@ notifications:
 ## Phase 6: PyWebView Integration ✅
 
 **Status**: Complete and working\
-**Implementation**: `carlo_app.py` successfully wraps the web app
+**Implementation**: `claro_app.py` successfully wraps the web app
 
 ### 6.1 Main Entry Points ✅
 
-**Actual Implementation** (`carlo_app.py`), packaged for Linux with
+**Actual Implementation** (`claro_app.py`), packaged for Linux with
 `nix build .#default`!
 
 **Note**: Android entry point should be separate when implemented

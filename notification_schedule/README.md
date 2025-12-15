@@ -7,8 +7,8 @@ Systemd-based notification scheduling for Claro.
 This module provides:
 
 1. **Configuration parsing** - Parse YAML config files with notification rules
-2. **Scheduler program** - `notification-scheduler` reads config and schedules
-   notifications for the next day
+2. **Scheduler program** - `claro-notification-scheduler` reads config and
+   schedules notifications for the next day
 3. **OS integration** - Uses `os_interfaces` module for systemd timer management
 
 The `os_interfaces` module provides two key methods:
@@ -38,20 +38,20 @@ The notification system has two layers:
 
 ## Scheduler Program Usage
 
-The `notification-scheduler` program reads the notification configuration and
-schedules all notifications for the next day.
+The `claro-notification-scheduler` program reads the notification configuration
+and schedules all notifications for the next day.
 
 ### Command Line
 
 ```bash
 # Use default config location (~/.config/claro/notification_schedule.yaml)
-notification-scheduler
+claro-notification-scheduler
 
 # Specify custom config file
-notification-scheduler --config /path/to/config.yaml
+claro-notification-scheduler --config /path/to/config.yaml
 
-# Specify custom notification command (default: notify-with-carlo)
-notification-scheduler --notification-command /path/to/custom-notifier
+# Specify custom notification command (default: claro-notification)
+claro-notification-scheduler --notification-command /path/to/custom-notifier
 ```
 
 ### Configuration File Format
@@ -102,10 +102,10 @@ hydration_reminder:
 
 ```bash
 # Build the scheduler
-nix build .#notification-scheduler
+nix build .#claro-notification-scheduler
 
 # Run directly
-./result/bin/notification-scheduler
+./result/bin/claro-notification-scheduler
 ```
 
 ## Programmatic Usage
@@ -122,7 +122,7 @@ timer_mgr = LinuxTimerManager(app_name="claro")
 # Schedule individual notifications
 config = TimerConfig(
     timing=time(14, 30),  # or TimeRange(from_time=..., to_time=...)
-    command="notify-with-carlo",
+    command="claro-notification",
     args=["afternoon_checkin"],  # notification name
     name="afternoon_checkin"
 )
@@ -134,7 +134,7 @@ timer_mgr.schedule_timer(config)
 Check daily scheduler status:
 
 ```bash
-systemctl --user status claro-notification-scheduler.timer
+systemctl --user status claro-claro-notification-scheduler.timer
 ```
 
 List all scheduled timers (including one-shot notification timers):
@@ -146,7 +146,7 @@ systemctl --user list-timers
 View logs for the daily scheduler:
 
 ```bash
-journalctl --user -u claro-notification-scheduler.service
+journalctl --user -u claro-claro-notification-scheduler.service
 ```
 
 View logs for specific notification timers:
@@ -167,8 +167,8 @@ Unit files are created in `~/.config/systemd/user/` and can be edited:
 
 2. Edit the daily scheduler:
    ```bash
-   systemctl --user edit --full claro-notification-scheduler.service
-   systemctl --user edit --full claro-notification-scheduler.timer
+   systemctl --user edit --full claro-claro-notification-scheduler.service
+   systemctl --user edit --full claro-claro-notification-scheduler.timer
    ```
 
 3. Common customizations:
@@ -179,7 +179,7 @@ Unit files are created in `~/.config/systemd/user/` and can be edited:
 4. Reload after editing:
    ```bash
    systemctl --user daemon-reload
-   systemctl --user restart claro-notification-scheduler.timer
+   systemctl --user restart claro-claro-notification-scheduler.timer
    ```
 
 ## Uninstallation
@@ -187,8 +187,8 @@ Unit files are created in `~/.config/systemd/user/` and can be edited:
 To stop and disable the daily scheduler:
 
 ```bash
-systemctl --user stop claro-notification-scheduler.timer
-systemctl --user disable claro-notification-scheduler.timer
+systemctl --user stop claro-claro-notification-scheduler.timer
+systemctl --user disable claro-claro-notification-scheduler.timer
 ```
 
 To fully remove all unit files:
@@ -217,13 +217,13 @@ systemctl --user daemon-reload
 **Timer not running:**
 
 ```bash
-systemctl --user is-enabled claro-notification-scheduler.timer
-systemctl --user is-active claro-notification-scheduler.timer
+systemctl --user is-enabled claro-claro-notification-scheduler.timer
+systemctl --user is-active claro-claro-notification-scheduler.timer
 ```
 
 **Service failing:**
 
-- Check logs: `journalctl --user -u claro-notification-scheduler.service`
+- Check logs: `journalctl --user -u claro-claro-notification-scheduler.service`
 - Verify the command specified in `ExecStart` exists and is executable
 - Check that all required arguments are properly formatted
 

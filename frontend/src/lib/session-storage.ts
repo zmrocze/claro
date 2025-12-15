@@ -3,7 +3,7 @@
  * Manages chat session ID persistence in browser storage
  */
 
-const SESSION_KEY = "carlo_session_id";
+const SESSION_KEY = "claro_session_id";
 
 /**
  * Check if localStorage is available

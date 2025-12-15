@@ -8,11 +8,11 @@
 
 let
   # Build the Python virtual environment with all dependencies
-  pythonEnv = pythonSet.mkVirtualEnv "notify-with-carlo-env" workspace.deps.all;
+  pythonEnv = pythonSet.mkVirtualEnv "claro-notification-env" workspace.deps.all;
 
 in
 stdenv.mkDerivation {
-  pname = "notify-with-carlo";
+  pname = "claro-notification";
   version = "0.1.0";
   
   dontUnpack = true;
@@ -32,19 +32,19 @@ stdenv.mkDerivation {
     runHook preInstall
     
     mkdir -p $out/bin
-    mkdir -p $out/share/notify-with-carlo
+    mkdir -p $out/share/claro-notification
     
     # Copy the notification script
-    cp $src/notification/main.py $out/share/notify-with-carlo/
+    cp $src/notification/main.py $out/share/claro-notification/
     
     # Copy backend and os_interfaces source code
-    cp -r $src/backend $out/share/notify-with-carlo/
-    cp -r $src/os_interfaces $out/share/notify-with-carlo/
+    cp -r $src/backend $out/share/claro-notification/
+    cp -r $src/os_interfaces $out/share/claro-notification/
     
     # Create wrapper that uses Python environment
-    makeWrapper ${pythonEnv}/bin/python $out/bin/notify-with-carlo \
-      --add-flags "$out/share/notify-with-carlo/main.py" \
-      --set PYTHONPATH "$out/share/notify-with-carlo:${pythonEnv}/${python3.sitePackages}"
+    makeWrapper ${pythonEnv}/bin/python $out/bin/claro-notification \
+      --add-flags "$out/share/claro-notification/main.py" \
+      --set PYTHONPATH "$out/share/claro-notification:${pythonEnv}/${python3.sitePackages}"
     
     runHook postInstall
   '';
@@ -59,6 +59,6 @@ stdenv.mkDerivation {
     homepage = "https://github.com/zmrocze/claro";
     license = licenses.mit;
     platforms = platforms.linux;
-    mainProgram = "notify-with-carlo";
+    mainProgram = "claro-notification";
   };
 }

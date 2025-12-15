@@ -45,7 +45,7 @@ def open_app_on_click() -> None:
     logger.error(f"Failed to open app: {e}")
 
 
-async def get_carlo_response(prompt: str) -> str:
+async def get_claro_response(prompt: str) -> str:
   """Get response from Carlo agent for the given prompt.
 
   Args:
@@ -135,7 +135,7 @@ async def main() -> None:
   )
 
   # Get response from Carlo agent
-  response = await get_carlo_response(prompt)
+  response = await get_claro_response(prompt)
   logger.info(f"Got response: {response[:100]}...")
 
   # Create event to signal when notification is interacted with

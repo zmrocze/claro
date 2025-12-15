@@ -355,7 +355,7 @@ class SessionManager:
     self.timeout_hours = AppConfig.SESSION_TIMEOUT_HOURS
 
     # Storage directory for all sessions
-    self.storage_dir = Path(user_data_dir("carlo", ensure_exists=True)) / "sessions"
+    self.storage_dir = Path(user_data_dir("claro", ensure_exists=True)) / "sessions"
     self.storage_dir.mkdir(parents=True, exist_ok=True)
 
     # Default session ID for single-user app instance

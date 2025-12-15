@@ -203,6 +203,7 @@ class LinuxTimerManager(TimerManager):
         self._write_unit(f"{base}.service", service_txt)
         self._write_unit(f"{base}.timer", timer_txt)
         self._reload(m)
+        logger.info(f"Created daily scheduler units and reloaded: {base}")
       else:
         logger.info("Daily scheduler units already present")
         # Check if systemd knows about the timer; reload if not

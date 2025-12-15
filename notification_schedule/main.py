@@ -112,8 +112,8 @@ def main() -> None:
   parser.add_argument(
     "--notification-command",
     type=str,
-    default="notify-with-carlo",
-    help="Path to notification program (default: notify-with-carlo)",
+    default="claro-notification",
+    help="Path to notification program (default: claro-notification)",
   )
   args = parser.parse_args()
 

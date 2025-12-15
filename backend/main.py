@@ -42,7 +42,7 @@ async def _schedule_daily_notifications():
     timer_mgr = LinuxTimerManager(app_name="claro")
     run_time = time(hour=3, minute=0)
     timer_mgr.schedule_daily(
-      command="notification_schedule", args=[], run_time=run_time
+      command="claro-notification-scheduler", args=[], run_time=run_time
     )
     logger.info("Daily notification scheduler configured")
   except Exception as e:

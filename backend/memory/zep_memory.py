@@ -387,7 +387,7 @@ def initialize_memory() -> None:
     memory = get_memory_client()
 
     # Create default user for the app instance
-    user_id = f"carlo_user_{uuid.uuid4().hex[:8]}"
+    user_id = f"claro_user_{uuid.uuid4().hex[:8]}"
     memory.create_or_get_user(user_id=user_id, first_name="Claro", last_name="User")
 
     # Create initial thread

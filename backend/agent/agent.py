@@ -393,9 +393,9 @@ def new_agent(
   """
   # Resolve all config defaults in one place
   resolved_user_id = (
-    user_id or AppConfig.ZEP_USER_ID or f"carlo_user_{uuid.uuid4().hex[:8]}"
+    user_id or AppConfig.ZEP_USER_ID or f"claro_user_{uuid.uuid4().hex[:8]}"
   )
-  if "carlo_user_" in resolved_user_id and not user_id:
+  if "claro_user_" in resolved_user_id and not user_id:
     logger.info(f"Generated user ID: {resolved_user_id}")
 
   resolved_memory = memory_provider or create_memory_provider()
