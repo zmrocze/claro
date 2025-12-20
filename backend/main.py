@@ -26,6 +26,7 @@ from os_interfaces.linux import LinuxTimerManager
 
 # Configure logging
 logging.basicConfig(
+  # todo: config
   level=logging.INFO,
   # format='%(levelname)s [%(correlation_id)s] %(name)s %(message)s'
 )

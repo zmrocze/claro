@@ -17,9 +17,12 @@ from urllib.request import urlopen
 from urllib.error import URLError
 from pathlib import Path
 
+WEBVIEW_DEBUG = os.getenv("CLARO_WEBVIEW_DEBUG", "").strip().lower() in {"1", "true"}
+
 # Configure logging
 logging.basicConfig(
-  level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  level=logging.DEBUG if WEBVIEW_DEBUG else logging.INFO,
+  format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -123,7 +126,7 @@ def main():
   create_window()
 
   logger.info("Starting pywebview...")
-  webview.start(debug=True, private_mode=False, storage_path="~/.claro")
+  webview.start(debug=WEBVIEW_DEBUG, private_mode=False, storage_path="~/.claro")
 
   logger.info("Claro AI Assistant closed. Exiting...")
   # Force exit to ensure daemon threads are killed
