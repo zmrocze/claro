@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, time
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 
 @dataclass
@@ -79,28 +79,4 @@ class TimerManager(ABC):
     Args:
       timer_id: ID of the timer to cancel
     """
-    raise NotImplementedError
-
-
-class ConfigStorage(ABC):
-  """Abstract base class for configuration file storage"""
-
-  @abstractmethod
-  def load(self) -> dict:
-    """Load configuration from storage"""
-    raise NotImplementedError
-
-  @abstractmethod
-  def save(self, config: dict) -> None:
-    """Save configuration to storage"""
-    raise NotImplementedError
-
-  @abstractmethod
-  def get(self, key: str, default: Any = None) -> Any:
-    """Get a configuration value by key"""
-    raise NotImplementedError
-
-  @abstractmethod
-  def set(self, key: str, value: Any) -> None:
-    """Set a configuration value"""
     raise NotImplementedError

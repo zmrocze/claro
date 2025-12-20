@@ -4,16 +4,13 @@ import logging
 from contextlib import contextmanager
 from datetime import time
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
-import yaml
 from desktop_notifier import DesktopNotifier
-from platformdirs import user_config_dir
 from pystemd.dbuslib import DBus
 from pystemd.systemd1 import Manager
 
 from .base import (
-  ConfigStorage,
   NotificationManager,
   ScheduleTimeRange,
   TimerConfig,
@@ -227,51 +224,3 @@ class LinuxTimerManager(TimerManager):
           logger.warning(f"Could not cancel timer {timer_id}: {e}")
     except Exception as e:
       logger.error(f"Failed to cancel timer: {e}")
-
-
-class LinuxConfigStorage(ConfigStorage):
-  """Linux configuration storage using YAML files in user config directory"""
-
-  def __init__(self, app_name: str, config_name: str):
-    self.config_dir = Path(user_config_dir(app_name, ensure_exists=True))
-    self.config_file = self.config_dir / f"{config_name}.yaml"
-    self._config: dict = {}
-    self._load_config()
-
-  def _load_config(self) -> None:
-    """Load configuration from disk"""
-    if self.config_file.exists():
-      try:
-        with open(self.config_file, "r") as f:
-          self._config = yaml.safe_load(f) or {}
-        logger.debug(f"Loaded config from {self.config_file}")
-      except Exception as e:
-        logger.error(f"Failed to load config: {e}")
-        self._config = {}
-    else:
-      self._config = {}
-
-  def load(self) -> dict:
-    """Load configuration from storage"""
-    self._load_config()
-    return self._config.copy()
-
-  def save(self, config: dict) -> None:
-    """Save configuration to storage"""
-    self._config = config.copy()
-    try:
-      self.config_dir.mkdir(parents=True, exist_ok=True)
-      with open(self.config_file, "w") as f:
-        yaml.safe_dump(self._config, f, default_flow_style=False)
-      logger.debug(f"Saved config to {self.config_file}")
-    except Exception as e:
-      logger.error(f"Failed to save config: {e}")
-
-  def get(self, key: str, default: Any = None) -> Any:
-    """Get a configuration value by key"""
-    return self._config.get(key, default)
-
-  def set(self, key: str, value: Any) -> None:
-    """Set a configuration value"""
-    self._config[key] = value
-    self.save(self._config)

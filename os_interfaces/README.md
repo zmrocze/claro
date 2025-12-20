@@ -20,7 +20,6 @@ needed.
 - **platformdirs**: Cross-platform directory paths (config, data, cache)
 - **desktop-notifier**: Native desktop notifications via D-Bus
 - **pystemd**: Python bindings for systemd (transient timer units)
-- **pyyaml**: YAML configuration file handling
 
 ### Components
 
@@ -128,48 +127,12 @@ storage.delete("user_id")
 - Immediate persistence on write
 - Isolated storage per storage_name
 
-#### 4. LinuxConfigStorage
-
-Stores configuration in YAML format in the user config directory.
-
-```python
-from os_interfaces.linux import LinuxConfigStorage
-
-# Create config storage
-config = LinuxConfigStorage(app_name="MyApp", config_name="config")
-
-# Set individual values
-config.set("api_key", "secret123")
-config.set("max_retries", 3)
-
-# Get values with defaults
-api_key = config.get("api_key")
-timeout = config.get("timeout", default=30)
-
-# Load/save entire config
-all_config = config.load()
-config.save({"key1": "value1", "key2": "value2"})
-```
-
-**Location:** `~/.config/claro/config.yaml` (on Linux)
-
-**Features:**
-
-- Human-readable YAML format
-- Automatic directory creation
-- Immediate persistence on write
-- Default value support
-
 ### Directory Structure
 
 The implementation uses `platformdirs` to follow XDG Base Directory
 specification:
 
 ```
-~/.config/claro/          # Configuration files (YAML)
-├── config.yaml
-└── custom_config.yaml
-
 ~/.local/share/claro/     # Application data (pickle)
 ├── storage.pkl
 ├── session.pkl
@@ -185,7 +148,7 @@ Comprehensive test suite with mocking for external dependencies:
 pytest test/test_os_interfaces_linux.py -v
 
 # Run specific test class
-pytest test/test_os_interfaces_linux.py::TestLinuxConfigStorage -v
+pytest test/test_os_interfaces_linux.py -k PersistentStorage -v
 
 # Run with coverage
 pytest test/test_os_interfaces_linux.py --cov=os_interfaces.linux
@@ -197,7 +160,6 @@ pytest test/test_os_interfaces_linux.py --cov=os_interfaces.linux
 - ✅ Timer scheduling (future/past times)
 - ✅ Timer cancellation
 - ✅ Persistent storage (set/get/delete)
-- ✅ Config storage (YAML format)
 - ✅ Data persistence across instances
 - ✅ Storage isolation
 - ✅ Factory functions
@@ -211,51 +173,29 @@ pytest test/test_os_interfaces_linux.py --cov=os_interfaces.linux
 from os_interfaces.linux import (
     LinuxNotificationManager,
     LinuxTimerManager,
-    LinuxConfigStorage,
 )
 from datetime import datetime, timedelta
 
 # Initialize components
 notifier = LinuxNotificationManager(app_name="ReminderApp")
 timer_mgr = LinuxTimerManager(app_name="ReminderApp")
-config = LinuxConfigStorage(app_name="ReminderApp", config_name="config")
 
-# Load user preferences
-reminder_enabled = config.get("reminders_enabled", default=True)
-
-if reminder_enabled:
-    # Schedule reminder
-    def send_reminder(data):
-        notifier.create_notification(
-            title="Reminder",
-            body=data["message"]
-        )
-    
-    reminder_time = datetime.now() + timedelta(hours=1)
-    timer_id = timer_mgr.schedule_timer(
-        time=reminder_time,
-        callback=send_reminder,
-        data={"message": "Time for your meeting!"}
+# Schedule reminder
+reminder_time = datetime.now() + timedelta(hours=1)
+timer_id = timer_mgr.schedule_timer(
+    timer_config=TimerConfig(
+        timing=reminder_time,
+        command="/usr/bin/echo",
+        args=["Time for your meeting!"],
+        name="meeting-reminder",
     )
-    
-    # Save timer ID for later cancellation
-    config.set("active_timer_id", timer_id)
+)
 ```
 
 ### Shared Code Pattern
 
-Both `PersistentStorage` and `ConfigStorage` share similar patterns but differ
-in:
-
-1. **File Location**: Data dir vs Config dir (via `platformdirs`)
-2. **Serialization**: Pickle (binary) vs YAML (text)
-3. **Use Case**: Runtime data vs User configuration
-
-This design allows for:
-
-- Clear separation of concerns
-- Appropriate storage format for each use case
-- Following platform conventions
+Persistent storage uses platform-appropriate data directories (via
+`platformdirs`).
 
 ## Platform Support
 

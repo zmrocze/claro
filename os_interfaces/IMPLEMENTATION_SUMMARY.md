@@ -2,24 +2,14 @@
 
 ## Overview
 
-Successfully implemented complete Linux OS interfaces for the Carlo application,
-including notifications, timers, persistent storage, and configuration
-management.
+Successfully implemented Linux OS interfaces for the Carlo application,
+including notifications, timers, and persistent storage.
 
 ## What Was Implemented
 
 ### 1. Base Classes (base.py)
 
-Added `ConfigStorage` abstract base class alongside existing interfaces:
-
-```python
-class ConfigStorage(ABC):
-    """Abstract base class for configuration file storage"""
-    - load() -> dict
-    - save(config: dict) -> None
-    - get(key: str, default: Any = None) -> Any
-    - set(key: str, value: Any) -> None
-```
+Defines abstract interfaces for notifications and timers.
 
 ### 2. Linux Implementations (linux.py)
 
@@ -43,13 +33,6 @@ class ConfigStorage(ABC):
 - Location: `~/.local/share/claro/*.pkl`
 - Immediate persistence on write operations
 
-#### LinuxConfigStorage
-
-- Stores configuration in human-readable YAML format
-- Uses `platformdirs` for XDG-compliant config directory
-- Location: `~/.config/claro/*.yaml`
-- Separate from persistent storage (different directory)
-
 ### 3. Direct Constructor Usage
 
 Constructors accept required parameters directly:
@@ -59,7 +42,6 @@ Constructors accept required parameters directly:
 notifier = LinuxNotificationManager(app_name="MyApp")
 timer_mgr = LinuxTimerManager(app_name="MyApp")
 storage = LinuxPersistentStorage(app_name="MyApp", storage_name="session")
-config = LinuxConfigStorage(app_name="MyApp", config_name="config")
 ```
 
 No factory functions needed - constructors are straightforward.
@@ -88,17 +70,7 @@ No factory functions needed - constructors are straightforward.
 
 ## Key Design Decisions
 
-### 1. Separation of Storage Types
-
-**ConfigStorage vs PersistentStorage:**
-
-- Different directories (config vs data)
-- Different formats (YAML vs pickle)
-- Different use cases (user settings vs runtime data)
-
-This follows platform conventions and makes the purpose clear.
-
-### 2. Simple, Direct Constructors
+### 1. Simple, Direct Constructors
 
 Constructors accept required parameters directly - no complex patterns needed.
 
@@ -166,7 +138,6 @@ from os_interfaces.linux import (
     LinuxNotificationManager,
     LinuxTimerManager,
     LinuxPersistentStorage,
-    LinuxConfigStorage,
 )
 from datetime import datetime, timedelta
 
@@ -174,7 +145,6 @@ from datetime import datetime, timedelta
 notifier = LinuxNotificationManager(app_name="MyApp")
 timer_mgr = LinuxTimerManager(app_name="MyApp")
 storage = LinuxPersistentStorage(app_name="MyApp", storage_name="session")
-config = LinuxConfigStorage(app_name="MyApp", config_name="config")
 
 # Send notification
 notifier.create_notification(
@@ -200,10 +170,6 @@ timer_id = timer_mgr.schedule_timer(
 # Store session data
 storage.set("last_login", datetime.now().isoformat())
 storage.set("user_preferences", {"theme": "dark"})
-
-# Store configuration
-config.set("notifications_enabled", True)
-config.set("reminder_interval", 30)
 ```
 
 ## Technical Notes
@@ -239,7 +205,7 @@ The implementation handles both scenarios:
 
 This ensures notifications work in various application contexts.
 
-### Pickle vs YAML Trade-offs
+### Pickle Trade-offs
 
 **Pickle (PersistentStorage):**
 
@@ -247,13 +213,6 @@ This ensures notifications work in various application contexts.
 - ✅ Fast serialization
 - ❌ Binary format (not human-readable)
 - ❌ Python-specific
-
-**YAML (ConfigStorage):**
-
-- ✅ Human-readable and editable
-- ✅ Language-agnostic
-- ✅ Version control friendly
-- ❌ Limited to basic types
 
 ## Future Enhancements
 
@@ -269,10 +228,7 @@ This ensures notifications work in various application contexts.
 ✅ **platformdirs**: Used for getting app data and config directories\
 ✅ **desktop-notifier**: Used for creating native notifications\
 ✅ **pystemd**: Used for creating systemd transient timer units\
-✅ **Separate storage classes**: ConfigStorage vs PersistentStorage with shared
-patterns\
-✅ **Different locations**: Config in `~/.config/`, data in `~/.local/share/`\
-✅ **Different formats**: YAML for config, pickle for persistent storage\
+✅ **Different locations**: Data in `~/.local/share/`\
 ✅ **Comprehensive tests**: 23 test cases, all passing\
 ✅ **Documentation**: README with examples and API documentation
 

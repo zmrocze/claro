@@ -6,10 +6,9 @@ import the appropriate implementation directly in the main entry points:
 - main_android.py will import from os_interfaces.android
 """
 
-from .base import ConfigStorage, NotificationManager, TimerManager
+from .base import NotificationManager, TimerManager
 
 __all__ = [
   "NotificationManager",
   "TimerManager",
-  "ConfigStorage",
 ]

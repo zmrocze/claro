@@ -1,16 +1,11 @@
 """Tests for Linux OS interfaces"""
 
-import tempfile
 from datetime import datetime, time
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import yaml
-
 from os_interfaces.base import ScheduleTimeRange, TimerConfig
 from os_interfaces.linux import (
-  LinuxConfigStorage,
   LinuxNotificationManager,
   LinuxTimerManager,
 )
@@ -257,86 +252,3 @@ class TestLinuxTimerManager:
     mock_manager.Manager.DisableUnitFiles.assert_called_once_with(
       [b"test-unit.timer"], False
     )
-
-
-class TestLinuxConfigStorage:
-  """Tests for LinuxConfigStorage"""
-
-  def test_init_creates_config(self):
-    """Test config initialization creates directory"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-      with patch("os_interfaces.linux.user_config_dir", return_value=tmpdir):
-        config = LinuxConfigStorage(app_name="TestApp", config_name="test")
-        assert config.config_dir == Path(tmpdir)
-        assert config.config_file == Path(tmpdir) / "test.yaml"
-
-  def test_set_and_get(self):
-    """Test setting and getting config values"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-      with patch("os_interfaces.linux.user_config_dir", return_value=tmpdir):
-        config = LinuxConfigStorage(app_name="TestApp", config_name="test")
-
-        config.set("setting1", "value1")
-        config.set("setting2", 42)
-        config.set("setting3", {"nested": "config"})
-
-        assert config.get("setting1") == "value1"
-        assert config.get("setting2") == 42
-        assert config.get("setting3") == {"nested": "config"}
-        assert config.get("nonexistent") is None
-        assert config.get("nonexistent", "default") == "default"
-
-  def test_load_and_save(self):
-    """Test loading and saving entire config"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-      with patch("os_interfaces.linux.user_config_dir", return_value=tmpdir):
-        config = LinuxConfigStorage(app_name="TestApp", config_name="test")
-
-        test_config = {
-          "key1": "value1",
-          "key2": 123,
-          "key3": {"nested": "data"},
-        }
-
-        config.save(test_config)
-        loaded = config.load()
-
-        assert loaded == test_config
-
-  def test_persistence(self):
-    """Test that config persists across instances"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-      with patch("os_interfaces.linux.user_config_dir", return_value=tmpdir):
-        config1 = LinuxConfigStorage(app_name="TestApp", config_name="test")
-        config1.set("persistent_setting", "persistent_value")
-
-        # Create new instance
-        config2 = LinuxConfigStorage(app_name="TestApp", config_name="test")
-        assert config2.get("persistent_setting") == "persistent_value"
-
-  def test_yaml_format(self):
-    """Test that config is saved in YAML format"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-      with patch("os_interfaces.linux.user_config_dir", return_value=tmpdir):
-        config = LinuxConfigStorage(app_name="TestApp", config_name="test")
-
-        test_data = {"key": "value", "number": 42}
-        config.save(test_data)
-
-        # Read file directly and verify it's valid YAML
-        with open(config.config_file, "r") as f:
-          loaded = yaml.safe_load(f)
-
-        assert loaded == test_data
-
-  def test_empty_config(self):
-    """Test handling of empty config file"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-      with patch("os_interfaces.linux.user_config_dir", return_value=tmpdir):
-        config = LinuxConfigStorage(app_name="TestApp", config_name="test")
-
-        # Create empty file
-        config.config_file.touch()
-
-        loaded = config.load()
-        assert loaded == {}
