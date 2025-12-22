@@ -34,11 +34,12 @@ stdenv.mkDerivation {
     gst_all_1.gst-plugins-bad # (includes fdk-aac)
   ];
 
-  # Copy the claro_app.py script from the source
+  # Copy the entrypoint scripts + backend from the source
   src = lib.fileset.toSource {
     root = ./.;
     fileset = lib.fileset.unions [
-      ./claro_app.py
+      ./claro_app_linux.py
+      ./claro_app_core.py
       ./backend
     ];
   };

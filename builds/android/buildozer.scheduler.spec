@@ -8,7 +8,7 @@ source.include_exts = py,json,yaml,toml
 source.exclude_dirs = .git,__pycache__,node_modules,dist,build,venv,.devenv
 
 # Runs notification_schedule/main.py
-package.entrypoint = notification_schedule.main
+package.entrypoint = notification_schedule.main_android
 
 version = 0.1.0
 

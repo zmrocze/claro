@@ -1,15 +1,13 @@
-"""Android entrypoint for the packaged Claro app.
+"""Buildozer module entrypoint.
 
-Buildozer/p4a expects a Python *module* entrypoint. Our desktop entrypoint
-`claro_app.py` is a repo-root script, so we keep this tiny shim.
-
-For now, this simply runs the same app bootstrap.
+Buildozer/p4a expects a module import path. We keep this shim under
+`builds/android/` and delegate to the real platform entrypoint.
 """
 
-from claro_app import main
+from claro_app_android import main
 
 
-def run():
+def run() -> None:
   main()
 
 

@@ -6,7 +6,7 @@ source.dir = ../..
 source.include_exts = py,json,yaml,toml
 source.exclude_dirs = .git,__pycache__,node_modules,dist,build,venv,.devenv
 
-package.entrypoint = notification.main
+package.entrypoint = notification.main_android
 
 version = 0.1.0
 requirements = python3,pyjnius,pyyaml,platformdirs

@@ -18,6 +18,7 @@ from pathlib import Path
 from platformdirs import user_config_dir
 from backend.agent.agent import new_agent
 from notification_schedule import parse_notification_config
+from os_interfaces.base import OSImplementations
 from os_interfaces.linux import LinuxNotificationManager
 
 logging.basicConfig(
@@ -63,14 +64,18 @@ async def get_claro_response(prompt: str) -> str:
     return f"Error: {str(e)}"
 
 
-async def create_notification(response_text: str, done_event: asyncio.Event) -> None:
+async def create_notification(
+  response_text: str,
+  done_event: asyncio.Event,
+  os_impl: OSImplementations,
+) -> None:
   """Create a system notification with the response text.
 
   Args:
       response_text: Text to display in the notification
       done_event: Event to signal when notification is clicked or dismissed
   """
-  notifier = LinuxNotificationManager(app_name="Carlo")
+  notifier = os_impl.notification_manager(app_name="Carlo")
 
   # Truncate response if too long for notification
   max_length = 200
@@ -94,7 +99,7 @@ async def create_notification(response_text: str, done_event: asyncio.Event) -> 
   logger.info("Notification created successfully")
 
 
-async def main() -> None:
+async def main(os_impl: OSImplementations | None = None) -> None:
   """Main entrypoint function.
 
   Args:
@@ -109,6 +114,12 @@ async def main() -> None:
     help="Name of the notification to trigger (must exist in notification_schedule.yaml)",
   )
   args = parser.parse_args()
+
+  if os_impl is None:
+    os_impl = OSImplementations(
+      notification_manager_cls=LinuxNotificationManager,
+      timer_manager_cls=lambda *a, **k: None,  # type: ignore[arg-type]
+    )
 
   # Locate config file
   config_path = (
@@ -142,7 +153,7 @@ async def main() -> None:
   done_event = asyncio.Event()
 
   # Create notification with response
-  await create_notification(response, done_event)
+  await create_notification(response, done_event, os_impl)
 
   # Wait for user to click or dismiss the notification
   logger.info("Waiting for notification interaction...")

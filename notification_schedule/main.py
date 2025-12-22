@@ -20,6 +20,7 @@ from notification_schedule.config_parser import (
   parse_notification_config,
 )
 from os_interfaces.base import ScheduleTimeRange, TimerConfig
+from os_interfaces.base import OSImplementations
 from os_interfaces.linux import LinuxTimerManager
 
 logging.basicConfig(
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def schedule_notification(
-  timer_mgr: LinuxTimerManager,
+  timer_mgr,
   notification_name: str,
   config: NotificationConfig,
   notification_command: str,
@@ -99,7 +100,7 @@ def schedule_notification(
       logger.error(f"Failed to schedule notification '{timer_name}': {e}")
 
 
-def main() -> None:
+def main(os_impl: OSImplementations | None = None) -> None:
   """Main entrypoint for the notification scheduler."""
   parser = argparse.ArgumentParser(
     description="Schedule notifications for the next day based on configuration."
@@ -117,6 +118,12 @@ def main() -> None:
   )
   args = parser.parse_args()
 
+  if os_impl is None:
+    os_impl = OSImplementations(
+      notification_manager_cls=lambda *a, **k: None,  # type: ignore[arg-type]
+      timer_manager_cls=LinuxTimerManager,
+    )
+
   # Determine config path
   config_path = args.config or (
     Path(user_config_dir("claro", ensure_exists=True)) / "notification_schedule.yaml"
@@ -131,7 +138,7 @@ def main() -> None:
     sys.exit(1)
 
   # Initialize timer manager
-  timer_mgr = LinuxTimerManager(app_name="claro")
+  timer_mgr = os_impl.timer_manager(app_name="claro")
 
   # Schedule each notification
   for notification_name, notification_config in schedule_config.notifications.items():

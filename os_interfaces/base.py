@@ -6,6 +6,24 @@ from datetime import datetime, time
 from typing import Callable, Optional
 
 
+@dataclass(frozen=True)
+class OSImplementations:
+  """Bundle of concrete OS-interface implementations.
+
+  Platform-specific entrypoints should construct this and pass it into
+  application components.
+  """
+
+  notification_manager_cls: type["NotificationManager"]
+  timer_manager_cls: type["TimerManager"]
+
+  def notification_manager(self, *args, **kwargs) -> "NotificationManager":
+    return self.notification_manager_cls(*args, **kwargs)
+
+  def timer_manager(self, *args, **kwargs) -> "TimerManager":
+    return self.timer_manager_cls(*args, **kwargs)
+
+
 @dataclass
 class ScheduleTimeRange:
   """Time range with specific dates for scheduling"""
