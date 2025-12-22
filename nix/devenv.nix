@@ -19,46 +19,119 @@
           # python312packages.pystemd
         ];
 
-        scripts.local-jupyter.exec = "uv run jupyter notebook --no-browser --ip=127.0.0.1 --port=8888 --NotebookApp.token= --NotebookApp.password= --NotebookApp.allow_origin=*";
+        # --- Android helper commands (exposed as `devenv run <name>`) ---
+        scripts = {
+          android-build-app.exec = ''
+            set -euo pipefail
+            ./builds/android/build_claro_app.sh
+          '';
 
-        scripts.generate-types.exec = ''
-          echo "🔄 Generating TypeScript types from FastAPI backend..."
-          
-          # Check if backend is already running
-          BACKEND_RUNNING=false
-          if curl -s http://localhost:8000/health > /dev/null 2>&1; then
-            echo "✓ Backend is already running"
-            BACKEND_RUNNING=true
-          else
-            echo "⚙️  Starting backend temporarily..."
-            uv run -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 > /dev/null 2>&1 &
-            BACKEND_PID=$!
+          android-build-notification-worker.exec = ''
+            set -euo pipefail
+            ./builds/android/build_notification_worker.sh
+          '';
+
+          android-build-notification-scheduler.exec = ''
+            set -euo pipefail
+            ./builds/android/build_notification_scheduler.sh
+          '';
+
+          android-emulator-create.exec = ''
+            set -euo pipefail
+            NAME="''${1:-claro-emulator}"
+            PKG="''${2:-system-images;android-32;google_apis_playstore;x86_64}"
+            avdmanager create avd --force --name "$NAME" --package "$PKG"
+          '';
+
+          android-emulator-start.exec = ''
+            set -euo pipefail
+            NAME="''${1:-claro-emulator}"
+            emulator -avd "$NAME" -netdelay none -netspeed full &
+            adb wait-for-device
+            adb shell getprop sys.boot_completed
+          '';
+
+          android-install-app.exec = ''
+            set -euo pipefail
+            APK_GLOB="''${1:-./builds/android/bin/claro-*-debug.apk}"
+            # shellcheck disable=SC2086
+            adb install -r $APK_GLOB
+          '';
+
+          android-launch-app.exec = ''
+            set -euo pipefail
+            PKG="''${1:-org.claro}"
+            adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1
+          '';
+
+          android-logcat-python.exec = ''
+            set -euo pipefail
+            adb logcat -s python:V
+          '';
+
+          android-logcat-app.exec = ''
+            set -euo pipefail
+            adb logcat -s claro:V python:V
+          '';
+
+          android-grant-notifications.exec = ''
+            set -euo pipefail
+            PKG="''${1:-org.claro}"
+            adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true
+          '';
+
+          android-check-network.exec = ''
+            set -euo pipefail
+            adb shell "ping -c1 8.8.8.8"
+          '';
+
+          android-check-storage.exec = ''
+            set -euo pipefail
+            PKG="''${1:-org.claro}"
+            adb shell ls "/sdcard/Android/data/$PKG/files/" || true
+          '';
+
+          local-jupyter.exec = "uv run jupyter notebook --no-browser --ip=127.0.0.1 --port=8888 --NotebookApp.token= --NotebookApp.password= --NotebookApp.allow_origin=*";
+
+          generate-types.exec = ''
+            echo "🔄 Generating TypeScript types from FastAPI backend..."
             
-            # Wait for backend to be ready (max 30 seconds)
-            echo "⏳ Waiting for backend to start..."
-            for i in {1..30}; do
-              if curl -s http://localhost:8000/health > /dev/null 2>&1; then
-                echo "✓ Backend is ready"
-                break
-              fi
-              sleep 1
-            done
-          fi
-          
-          # Generate types
-          echo "📝 Generating TypeScript types..."
-          cd frontend
-          npm run generate-types
-          cd ..
-          
-          # Stop backend if we started it
-          if [ "$BACKEND_RUNNING" = false ]; then
-            echo "🛑 Stopping temporary backend..."
-            kill $BACKEND_PID 2>/dev/null || true
-          fi
-          
-          echo "✅ TypeScript types generated successfully in frontend/src/api-client/"
-        '';
+            # Check if backend is already running
+            BACKEND_RUNNING=false
+            if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+              echo "✓ Backend is already running"
+              BACKEND_RUNNING=true
+            else
+              echo "⚙️  Starting backend temporarily..."
+              uv run -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 > /dev/null 2>&1 &
+              BACKEND_PID=$!
+              
+              # Wait for backend to be ready (max 30 seconds)
+              echo "⏳ Waiting for backend to start..."
+              for i in {1..30}; do
+                if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+                  echo "✓ Backend is ready"
+                  break
+                fi
+                sleep 1
+              done
+            fi
+            
+            # Generate types
+            echo "📝 Generating TypeScript types..."
+            cd frontend
+            npm run generate-types
+            cd ..
+            
+            # Stop backend if we started it
+            if [ "$BACKEND_RUNNING" = false ]; then
+              echo "🛑 Stopping temporary backend..."
+              kill $BACKEND_PID 2>/dev/null || true
+            fi
+            
+            echo "✅ TypeScript types generated successfully in frontend/src/api-client/"
+          '';
+        };
 
         # https://devenv.sh/tests/
         enterTest = ''
