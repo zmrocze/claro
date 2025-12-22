@@ -10,8 +10,7 @@
         # https://devenv.sh/basics/
         env.GREET = "devenv";
         enterShell = ''
-          hello
-          git --version
+          echo "$GREET"
         '';
 
         packages = with pkgs; [
@@ -64,7 +63,6 @@
         # https://devenv.sh/tests/
         enterTest = ''
           echo "Running tests"
-          git --version
         '';
 
         languages = {
@@ -124,6 +122,42 @@
           # eslint.enable = true;
 
           # html-tidy.enable = true;
+        };
+
+        android = {
+          enable = true;
+          # enable = false;
+          # 34 = Android 14, 33 = Android 13. 
+          # Keeping 34 is recommended for new apps.
+          platforms.version = [ "33" "34" "35" ]; 
+          systemImageTypes = [ "google_apis_playstore" ];
+          abis = [ "arm64-v8a" "x86_64" ];
+          cmake.version = [ "3.22.1" ];
+          # 11.0 is the current latest stable version of cmdline-tools
+          cmdLineTools.version = "11.0"; 
+          buildTools.version = [ "35.0.0" ]; 
+          emulator = {
+            enable = true;
+          };
+          sources.enable = false;
+          systemImages.enable = true;
+          ndk.enable = true;
+          googleAPIs.enable = true;
+          googleTVAddOns.enable = true;
+          extras = [ "extras;google;gcm" ];
+          extraLicenses = [
+            "android-sdk-preview-license"
+            "android-googletv-license"
+            "android-sdk-arm-dbt-license"
+            "google-gdk-license"
+            "intel-android-extra-license"
+            "intel-android-sysimage-license"
+            "mips-android-sysimage-license"
+          ];
+          android-studio = {
+            enable = true;
+            package = pkgs.android-studio;
+          };
         };
 
         # See full reference at https://devenv.sh/reference/options/

@@ -37,7 +37,7 @@
     inputs@{
       nixpkgs,
       flake-parts,
-      my-lib,
+      # my-lib,
       uv2nix,
       pyproject-nix,
       pyproject-build-systems,
@@ -51,15 +51,22 @@
       ### Remember to run like `nix develop --no-pure-eval`, devenv requirement.
       ### 
       imports = [
-        my-lib.flakeModules.pkgs
         devenv.flakeModule
         ./nix/devenv.nix
+        # my-lib.flakeModules.pkgs
       ];
+      # _module.args.pkgs = import nixpkgs {  };
       inherit systems;
-      pkgsConfig.overlays = [
-        my-lib.overlays.default
-      ];
-      perSystem = { pkgs, ... }:
+      # pkgsConfig = {
+      #   overlays = [
+      #     my-lib.overlays.default
+      #   ];
+      #   extraConfig.config = {
+      #     allowUnfree = true;
+      #     allowUnfreePredicate =  _: true;
+      #   };
+      # };
+      perSystem = { pkgs, system, ... }:
         let
           # myLib = my-lib.lib;
           inherit (nixpkgs) lib;
@@ -173,8 +180,15 @@
           remember = pkgs.callPackage ./remember {
             inherit remember-repo git-remember-hook;
           };
+
+          pkgsHere = import nixpkgs { config = { allowUnfree = true; }; inherit system; };
         in
     {
+      _module.args.pkgs = pkgsHere;
+
+      legacyPackages.myExtraData = {
+        pkgs_instance = pkgs;
+      };
        # Package a virtual environment as our main application.
       #
       # Enable no optional dependencies for production build.
