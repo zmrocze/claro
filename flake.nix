@@ -159,11 +159,6 @@
             python3 = python;
           };
           
-          # Build combined Claro package (app + notifications)
-          claro = pkgs.callPackage ./. {
-            inherit claro_app claro-notification claro-notification-scheduler;
-          };
-          
           # Build git-remember-hook (post-commit hook)
           git-remember-hook = pkgs.callPackage ./remember/post_commit_hook {
             inherit pythonSet workspace;
@@ -179,6 +174,11 @@
           # Build remember-tools (combined remember-repo and git-remember-hook)
           remember = pkgs.callPackage ./remember {
             inherit remember-repo git-remember-hook;
+          };
+
+          # Build combined Claro package (app + notifications)
+          claro = pkgs.callPackage ./. {
+            inherit claro_app claro-notification claro-notification-scheduler remember;
           };
 
           pkgsHere = import nixpkgs { config = { allowUnfree = true; }; inherit system; };

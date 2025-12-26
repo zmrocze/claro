@@ -19,9 +19,9 @@ requirements = python3,pyjnius,pyyaml,platformdirs,cython
 orientation = portrait
 fullscreen = 0
 
-android.api = 34
+android.api = 33
 android.minapi = 29
-android.sdk = 34
+# android.sdk = 33
 android.ndk = 25b
 android.archs = arm64-v8a,x86_64
 

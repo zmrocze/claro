@@ -2,6 +2,7 @@
 , claro_app
 , claro-notification
 , claro-notification-scheduler
+, remember
 }:
 
 # Combined derivation that includes the main Claro app and notification components
@@ -12,6 +13,7 @@ symlinkJoin {
     claro_app
     claro-notification
     claro-notification-scheduler
+    remember
   ];
   
   meta = claro_app.meta // {
@@ -22,6 +24,7 @@ symlinkJoin {
       - The main desktop application (claro)
       - Notification executable (claro-notification)
       - Notification scheduler (claro-notification-scheduler)
+      - Remember tools (remember-repo, git-remember-hook)
     '';
   };
 }

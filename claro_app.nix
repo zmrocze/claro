@@ -48,10 +48,11 @@ stdenv.mkDerivation {
     runHook preBuild
     
     # Copy the application entry point script
-    cp $src/claro_app.py app.py
+    cp $src/claro_app_core.py claro_app_core.py
+    cp $src/claro_app_linux.py claro_app_linux.py
     
     # Substitute the frontend path placeholder
-    substituteInPlace app.py \
+    substituteInPlace claro_app_linux.py \
       --replace-fail '@FRONTEND_PATH@' "$out/share/claro/frontend"
     
     runHook postBuild
@@ -71,12 +72,13 @@ stdenv.mkDerivation {
     cp -r $src/backend/* $out/share/claro/backend/
     
     # Install the application entry point script
-    cp app.py $out/share/claro/
-    
+    cp claro_app_linux.py $out/share/claro/
+    cp claro_app_core.py $out/share/claro/
+
     # Create wrapper script that uses backend's Python environment
     # The wrapper sets PYTHONPATH to include the backend code
     makeWrapper ${backend}/bin/python $out/bin/claro \
-      --add-flags "$out/share/claro/app.py" \
+      --add-flags "$out/share/claro/claro_app_linux.py" \
       --set PYTHONPATH "$out/share/claro:${backend}/${python3.sitePackages}:${python3.pkgs.pygobject3}/${python3.sitePackages}:${python3.pkgs.pycairo}/${python3.sitePackages}"
     
     runHook postInstall

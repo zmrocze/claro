@@ -5,6 +5,7 @@ description = "Personal AI assistant app with chat interface and notifications"
 
 requires-python = ">=3.12"
 dependencies = [
+  "pip",
   "fastapi==0.119.0",
   "uvicorn[standard]",
   "pywebview",
@@ -37,6 +38,7 @@ linux = [
 android = [
   "pyjnius",
   "buildozer",
+  "cython==3.0.12",
 ]
 dev = [
   "pytest",
