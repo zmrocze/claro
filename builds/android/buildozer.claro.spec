@@ -20,9 +20,9 @@ requirements = python3,pyjnius,fastapi,uvicorn,pywebview,pyyaml,pydantic,python-
 orientation = portrait
 fullscreen = 0
 
-android.api = 33
+android.api = 34
 android.minapi = 29
-android.sdk = 33
+android.sdk = 34
 android.ndk = 25b
 android.archs = arm64-v8a,x86_64
 

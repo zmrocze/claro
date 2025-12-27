@@ -9,6 +9,6 @@ pushd "$ROOT_DIR/builds/android" >/dev/null
 rm -rf .buildozer/android/platform/build-arm64-v8a_x86_64/dists/claro_scheduler
 
 # Buildozer must run inside an FHS env on NixOS (Android SDK tools are dynamically linked).
-bash ./run_buildozer_fhs.sh --profile scheduler android debug4
+bash ./run_buildozer_fhs.sh --profile scheduler android debug
 
 popd >/dev/null

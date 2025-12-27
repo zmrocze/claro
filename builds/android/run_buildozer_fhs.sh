@@ -48,6 +48,9 @@ if [[ ! -f "$spec_path" ]]; then
   exit 2
 fi
 
+# Ensure Buildozer sees the intended spec file (some tools ignore BUILDOZER_SPECFILE).
+ln -sf "$spec_path" "$(pwd)/buildozer.spec"
+
 # Read the target API from the spec (android.sdk preferred, then android.api).
 target_api=""
 spec_sdk=$(awk -F'=' '/^android\.sdk/ {gsub(/ /, "", $2); print $2; exit}' "$spec_path") || true
@@ -86,6 +89,42 @@ if [ -n "$zlib_pc" ]; then
   fi
 fi
 
+# Ensure libtoolize, GNU m4, autoreconf, and aclocal are available for autoreconf-heavy recipes (e.g., libffi).
+libtool_bin=""
+for p in /nix/store/*-libtool-*/bin/libtoolize; do
+  libtool_bin="$(dirname "$p")"
+  break
+done
+m4_bin=""
+for p in /nix/store/*-gnum4-*/bin/m4; do
+  m4_bin="$(dirname "$p")"
+  break
+done
+autoconf_bin=""
+for p in /nix/store/*-autoconf-*/bin/autoreconf; do
+  autoconf_bin="$(dirname "$p")"
+  break
+done
+automake_bin=""
+for p in /nix/store/*-automake-*/bin/aclocal; do
+  automake_bin="$(dirname "$p")"
+  break
+done
+
+extra_path="$PATH"
+if [ -n "$libtool_bin" ]; then
+  extra_path="$libtool_bin:$extra_path"
+fi
+if [ -n "$m4_bin" ]; then
+  extra_path="$m4_bin:$extra_path"
+fi
+if [ -n "$autoconf_bin" ]; then
+  extra_path="$autoconf_bin:$extra_path"
+fi
+if [ -n "$automake_bin" ]; then
+  extra_path="$automake_bin:$extra_path"
+fi
+
 env_parts=(
   "ANDROIDAPI=$target_api"
   "ANDROID_API=$target_api"
@@ -102,9 +141,13 @@ fi
 if [ -n "$pkg_config_path" ]; then
   env_parts+=("PKG_CONFIG_PATH=$pkg_config_path")
 fi
+if [ -n "$extra_path" ]; then
+  env_parts+=("PATH=$extra_path")
+fi
 if [ -d "$bt_lib64" ]; then
   env_parts+=("LD_LIBRARY_PATH=$bt_lib64:$LD_LIBRARY_PATH")
 fi
 
+# spec_path_escaped=$(printf '%q' "$spec_path")
 cmd="env ${env_parts[*]} uv run buildozer -- ${escaped_args[*]}"
 exec "$BUILDOZER_FHS" -c "bash -lc $(printf '%q' "$cmd")"
