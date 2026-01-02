@@ -13,9 +13,8 @@ package.entrypoint = builds.android.claro_app_android
 
 version = 0.1.0
 
-# Keep this list minimal-ish: p4a will try to build many wheels from source.
-# Add more as we confirm Android compatibility.
 requirements = python3,pyjnius,fastapi,uvicorn,pywebview,pyyaml,pydantic,python-dotenv,platformdirs
+p4a.local_recipes = ./p4a_recipes
 
 orientation = portrait
 fullscreen = 0

@@ -65,6 +65,20 @@ if [[ -z "$target_api" ]]; then
 fi
 
 bt_lib64="$HOME/.buildozer/android/platform/android-sdk/build-tools/36.1.0/lib64"
+libffi_lib=""
+for p in /nix/store/*-libffi-*/lib; do
+  if ls "$p"/libffi.so* >/dev/null 2>&1; then
+    libffi_lib="$p"
+    break
+  fi
+done
+libffi_include=""
+for p in /nix/store/*-libffi-*/include; do
+  if [ -f "$p/ffi.h" ]; then
+    libffi_include="$p"
+    break
+  fi
+done
 sdk_home="$HOME/.buildozer/android/platform/android-sdk"
 ndk_home="$HOME/.buildozer/android/platform/android-ndk-r25b"
 
@@ -91,8 +105,14 @@ fi
 
 # Ensure libtoolize, GNU m4, autoreconf, and aclocal are available for autoreconf-heavy recipes (e.g., libffi).
 libtool_bin=""
+libtool_aclocal=""
 for p in /nix/store/*-libtool-*/bin/libtoolize; do
   libtool_bin="$(dirname "$p")"
+  # libtool installs aclocal macros alongside the binary
+  prefix="$(dirname "$libtool_bin")"
+  if [ -d "$prefix/share/aclocal" ]; then
+    libtool_aclocal="$prefix/share/aclocal"
+  fi
   break
 done
 m4_bin=""
@@ -106,8 +126,13 @@ for p in /nix/store/*-autoconf-*/bin/autoreconf; do
   break
 done
 automake_bin=""
+automake_aclocal=""
 for p in /nix/store/*-automake-*/bin/aclocal; do
   automake_bin="$(dirname "$p")"
+  prefix="$(dirname "$automake_bin")"
+  if [ -d "$prefix/share/aclocal" ]; then
+    automake_aclocal="$prefix/share/aclocal"
+  fi
   break
 done
 
@@ -123,6 +148,24 @@ if [ -n "$autoconf_bin" ]; then
 fi
 if [ -n "$automake_bin" ]; then
   extra_path="$automake_bin:$extra_path"
+fi
+
+# Build an ACLOCAL_PATH that always includes libtool/automake macros even if
+# the outer environment forgot to set it (common source of AC_PROG_LIBTOOL
+# failures when autoreconf runs for libffi).
+aclocal_path_parts=()
+if [ -n "$libtool_aclocal" ]; then
+  aclocal_path_parts+=("$libtool_aclocal")
+fi
+if [ -n "$automake_aclocal" ]; then
+  aclocal_path_parts+=("$automake_aclocal")
+fi
+if [ -n "${ACLOCAL_PATH:-}" ]; then
+  aclocal_path_parts+=("$ACLOCAL_PATH")
+fi
+aclocal_path=""
+if [ "${#aclocal_path_parts[@]}" -gt 0 ]; then
+  IFS=":" aclocal_path="${aclocal_path_parts[*]}"; IFS=" "
 fi
 
 env_parts=(
@@ -144,8 +187,28 @@ fi
 if [ -n "$extra_path" ]; then
   env_parts+=("PATH=$extra_path")
 fi
+if [ -n "$aclocal_path" ]; then
+  env_parts+=("ACLOCAL_PATH=$aclocal_path")
+fi
+if [ -n "$libffi_include" ]; then
+  env_parts+=("LIBFFI_INCLUDEDIR=$libffi_include")
+fi
+if [ -n "$libffi_lib" ]; then
+  env_parts+=("LIBFFI_LIBDIR=$libffi_lib")
+  env_parts+=("LIBFFI_LIBS=-lffi")
+fi
+ld_parts=()
+if [ -n "$libffi_lib" ]; then
+  ld_parts+=("$libffi_lib")
+fi
 if [ -d "$bt_lib64" ]; then
-  env_parts+=("LD_LIBRARY_PATH=$bt_lib64:$LD_LIBRARY_PATH")
+  ld_parts+=("$bt_lib64")
+fi
+if [ -n "${LD_LIBRARY_PATH:-}" ]; then
+  ld_parts+=("$LD_LIBRARY_PATH")
+fi
+if [ "${#ld_parts[@]}" -gt 0 ]; then
+  IFS=":" env_parts+=("LD_LIBRARY_PATH=${ld_parts[*]}"); IFS=" "
 fi
 
 # spec_path_escaped=$(printf '%q' "$spec_path")

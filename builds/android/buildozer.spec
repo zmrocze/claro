@@ -1,1 +1,1 @@
-/home/zmrocze/code/python/claro/builds/android/buildozer.notification.spec
+/home/zmrocze/code/python/claro/builds/android/buildozer.claro.spec

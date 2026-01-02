@@ -110,8 +110,38 @@
           android-emulator-create.exec = ''
             set -euo pipefail
             NAME="''${1:-claro-emulator}"
-            PKG="''${2:-system-images;android-32;google_apis_playstore;x86_64}"
-            avdmanager create avd --force --name "$NAME" --package "$PKG"
+            API="''${2:-34}"
+            ABI="''${3:-x86_64}"
+            DEVICE="''${4:-pixel_5}"
+
+            IMG="system-images;android-''${API};google_apis_playstore;''${ABI}"
+            SDK_ROOT="''${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+
+            # Locate avdmanager (prefer cmdline-tools latest, then 11.0, then PATH)
+            if [ -n "$SDK_ROOT" ] && [ -x "$SDK_ROOT/cmdline-tools/latest/bin/avdmanager" ]; then
+              AVDMGR="$SDK_ROOT/cmdline-tools/latest/bin/avdmanager"
+            elif [ -n "$SDK_ROOT" ] && [ -x "$SDK_ROOT/cmdline-tools/11.0/bin/avdmanager" ]; then
+              AVDMGR="$SDK_ROOT/cmdline-tools/11.0/bin/avdmanager"
+            else
+              AVDMGR="$(command -v avdmanager || true)"
+            fi
+
+            if [ -z "$AVDMGR" ]; then
+              echo "avdmanager not found in PATH or SDK (ANDROID_SDK_ROOT/ANDROID_HOME)" >&2
+              exit 1
+            fi
+
+            DEVICE_FLAG="--device $DEVICE"
+            if ! "$AVDMGR" list device | grep -Fq "\"$DEVICE\""; then
+              echo "Device '$DEVICE' not found; using 'pixel' if available" >&2
+              if "$AVDMGR" list device | grep -Fq "\"pixel\""; then
+                DEVICE_FLAG="--device pixel"
+              else
+                DEVICE_FLAG=""
+              fi
+            fi
+
+            "$AVDMGR" create avd --force --name "$NAME" --package "$IMG" --abi "$ABI" $DEVICE_FLAG
           '';
 
           android-emulator-start.exec = ''
