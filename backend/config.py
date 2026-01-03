@@ -22,7 +22,7 @@ ZEP_API_KEY = "zep_api_key"
 
 # API endpoints
 GROK_API_BASE_URL = "https://api.x.ai/v1"  # Grok uses OpenAI-compatible API
-ZEP_API_URL = os.getenv("ZEP_API_URL", "http://localhost:8000")  # Default to local Zep
+ZEP_API_URL = os.getenv("ZEP_API_URL", None)  # Default to local Zep
 
 
 def set_api_key(key_name: str, value: str) -> None:

@@ -7,14 +7,12 @@ import logging
 import uuid
 from typing import Optional, List, Dict, Any
 
-from zep_cloud import Zep
-from zep_cloud.client import AsyncZep
+from zep_cloud.client import Zep, AsyncZep
 from zep_cloud.types import Message
 
 
 from backend.config import AppConfig, get_zep_api_key
 from backend.memory.base import MemoryProvider
-from backend.agent.tools import create_zep_tools
 
 logger = logging.getLogger(__name__)
 
@@ -351,6 +349,9 @@ class ZepMemory(MemoryProvider):
     """
     # Create AsyncZep client for tools
     try:
+      # Import here to avoid circular dependency at module import time
+      from backend.agent.tools import create_zep_tools
+
       if self.api_key:
         async_client = AsyncZep(api_key=self.api_key, base_url=self.api_url)
       else:

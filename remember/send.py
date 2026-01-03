@@ -2,8 +2,11 @@ from dataclasses import dataclass
 import json
 import asyncio
 import logging
+import random
+import contextlib
 from zep_cloud.client import AsyncZep
-from zep_cloud import Episode
+from zep_cloud import Episode, EpisodeData
+from zep_cloud.core.api_error import ApiError
 from backend.config import get_api_key
 
 
@@ -40,17 +43,72 @@ class ZepConfig:
 async def add_all_to_zep(zep_config: ZepConfig, nodes) -> list[Episode]:
   zep = AsyncZep(api_key=zep_config.api_key)
 
-  async with asyncio.TaskGroup() as tg:
-    tasks = [
-      tg.create_task(
-        zep.graph.add(
-          user_id=zep_config.user_id, data=json.dumps(get_data(node)), type="json"
-        )
-      )
-      for node in nodes
-    ]
+  batches = [nodes[i : i + 20] for i in range(0, len(nodes), 20)]
+  statuses = ["pending"] * len(batches)
+  done_event = asyncio.Event()
 
-  return [task.result() for task in tasks]
+  async def report_progress():
+    while not done_event.is_set():
+      await asyncio.sleep(30)
+      finished = sum(1 for s in statuses if s == "done")
+      retrying = sum(1 for s in statuses if s == "retrying")
+      if finished < len(statuses):
+        logger.info(
+          "Zep upload progress: finished %s / %s, retrying (rate limit) %s",
+          finished,
+          len(statuses),
+          retrying,
+        )
+
+  async def process_batch(idx: int, batch_nodes) -> list[Episode]:
+    while True:
+      try:
+        statuses[idx] = "pending"
+        result = await zep.graph.add_batch(
+          episodes=[
+            EpisodeData(data=json.dumps(get_data(node)), type="json")
+            for node in batch_nodes
+          ],
+          user_id=zep_config.user_id,
+        )
+        statuses[idx] = "done"
+        return result
+      except ApiError as e:
+        is_rate_limited = e.status_code == 429 or (
+          e.headers and e.headers.get("retry-after")
+        )
+        if not is_rate_limited:
+          statuses[idx] = "failed"
+          raise
+
+        retry_after_header = e.headers.get("retry-after") if e.headers else None
+        try:
+          base_delay = (
+            float(retry_after_header) if retry_after_header is not None else 1.0
+          )
+        except ValueError:
+          base_delay = 1.0
+        statuses[idx] = "retrying"
+        await asyncio.sleep(base_delay + random.uniform(0.0, 1.0))
+      except Exception:
+        statuses[idx] = "failed"
+        raise
+
+  progress_task = asyncio.create_task(report_progress())
+  try:
+    async with asyncio.TaskGroup() as tg:
+      tasks = [
+        tg.create_task(process_batch(idx, batch)) for idx, batch in enumerate(batches)
+      ]
+    results = []
+    for task in tasks:
+      results.extend(task.result())
+    return results
+  finally:
+    done_event.set()
+    progress_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+      await progress_task
 
 
 logger = logging.getLogger(__name__)
