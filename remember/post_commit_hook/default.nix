@@ -4,6 +4,7 @@
 , pythonSet
 , workspace
 , python3
+, pinentry
 }:
 
 let
@@ -18,7 +19,8 @@ stdenv.mkDerivation {
   dontUnpack = true;
   
   nativeBuildInputs = [ makeWrapper ];
-  
+  buildInputs = [ pinentry ];
+
   src = lib.fileset.toSource {
     root = ../..;
     fileset = lib.fileset.unions [

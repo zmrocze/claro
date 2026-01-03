@@ -9,6 +9,7 @@
 , frontend
 , backend
 , python3
+, pinentry
 }:
 
 stdenv.mkDerivation {
@@ -32,6 +33,8 @@ stdenv.mkDerivation {
     gst_all_1.gst-plugins-base
     gst_all_1.gst-plugins-good
     gst_all_1.gst-plugins-bad # (includes fdk-aac)
+
+    pinentry
   ];
 
   # Copy the entrypoint scripts + backend from the source
