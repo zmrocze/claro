@@ -72,7 +72,7 @@ def create_app(*, os_impl: OSImplementations | None = None) -> FastAPI:
     logger.info("Shutting down Claro backend...")
 
   app = FastAPI(
-    title="Claro AI Assistant",
+    title="Claro",
     description="Personal AI assistant with chat interface and notifications",
     version="0.1.0",
     lifespan=lifespan,

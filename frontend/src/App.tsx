@@ -64,7 +64,7 @@ function App() {
         {/* Header */}
         <header className="border-b border-slate-200 bg-white shadow-sm">
           <div className="container mx-auto px-4 py-4">
-            <h1 className="text-2xl font-bold text-slate-800">AI Assistant</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Claro</h1>
             <p className="text-sm text-slate-600">Your personal AI companion</p>
           </div>
         </header>
