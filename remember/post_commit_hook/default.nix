@@ -19,7 +19,7 @@ stdenv.mkDerivation {
   dontUnpack = true;
   
   nativeBuildInputs = [ makeWrapper ];
-  buildInputs = [ pinentry ];
+  buildInputs = [ makeWrapper ];
 
   src = lib.fileset.toSource {
     root = ../..;
@@ -43,11 +43,12 @@ stdenv.mkDerivation {
     # Create wrapper that uses Python environment
     makeWrapper ${pythonEnv}/bin/python $out/bin/git-remember-hook \
       --add-flags "$out/share/git-remember-hook/main.py" \
-      --set PYTHONPATH "$out/share/git-remember-hook:${pythonEnv}/${python3.sitePackages}"
+      --set PYTHONPATH "$out/share/git-remember-hook:${pythonEnv}/${python3.sitePackages}" \
+      --prefix PATH : "${lib.makeBinPath [ pinentry ]}"
     
     runHook postInstall
   '';
-  
+
   meta = with lib; {
     description = "Git post-commit hook to capture and structure commit diffs for memory storage";
     license = licenses.mit;

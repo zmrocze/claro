@@ -33,8 +33,6 @@ stdenv.mkDerivation {
     gst_all_1.gst-plugins-base
     gst_all_1.gst-plugins-good
     gst_all_1.gst-plugins-bad # (includes fdk-aac)
-
-    pinentry
   ];
 
   # Copy the entrypoint scripts + backend from the source
@@ -82,7 +80,8 @@ stdenv.mkDerivation {
     # The wrapper sets PYTHONPATH to include the backend code
     makeWrapper ${backend}/bin/python $out/bin/claro \
       --add-flags "$out/share/claro/claro_app_linux.py" \
-      --set PYTHONPATH "$out/share/claro:${backend}/${python3.sitePackages}:${python3.pkgs.pygobject3}/${python3.sitePackages}:${python3.pkgs.pycairo}/${python3.sitePackages}"
+      --set PYTHONPATH "$out/share/claro:${backend}/${python3.sitePackages}:${python3.pkgs.pygobject3}/${python3.sitePackages}:${python3.pkgs.pycairo}/${python3.sitePackages}" \
+      --prefix PATH : "${lib.makeBinPath [ pinentry ]}"
     
     runHook postInstall
   '';
