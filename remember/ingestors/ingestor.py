@@ -10,19 +10,18 @@ import io
 from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import Dict, List, Sequence, Union
+from typing import Any, Dict, List, Sequence, Union
 
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import (
   HTMLNodeParser,
-  JSONNodeParser,
   MarkdownNodeParser,
   SentenceSplitter,
   SimpleFileNodeParser,
 )
 from llama_index.core.schema import BaseNode, TextNode, TransformComponent
-from llama_index.readers.file import CSVReader
+from llama_index.readers.file import FlatReader
 
 
 def directory_reader(tracked_file_paths: List[Path]):
@@ -30,7 +29,7 @@ def directory_reader(tracked_file_paths: List[Path]):
     input_files=tracked_file_paths,
     filename_as_id=True,
     file_extractor={
-      ".csv": CSVReader()
+      ".csv": FlatReader()
     },  # PandasCsvReader trims header row, could also just use None here for plain text reader.
   )
 
@@ -268,7 +267,7 @@ class CSVNodeParser(TransformComponent):
       if not content:
         raise ValueError("Node content is empty")
 
-      csv_reader = csv.reader(io.StringIO(content))
+      csv_reader = csv.reader(io.StringIO(content.strip()), skipinitialspace=True)
       rows = list(csv_reader)
 
       if len(rows) < 2:
@@ -342,10 +341,75 @@ class CheckmarksCsv(CSVNodeParser):
     return result_nodes
 
 
+class JSONFlattenTransform(TransformComponent):
+  """Flatten JSON content into multiple TextNodes following custom rules.
+
+  The transform implements t(json) -> list[json]:
+  - t(obj with non-recursive fields alpha0, beta0, ... and recursive fields a, b, ...)
+      = [{alpha: alpha0, beta: beta0, ..., a: x} for x in t(A)]
+        + [{alpha: alpha0, beta: beta0, ..., b: x} for x in t(B)] + ...
+  - t([a, b, ...]) = t(a) + t(b) + ...
+  - t(x) = [x] for remaining non-recursive data types.
+  """
+
+  MIN_LIST_SPLITTED: int = 20
+
+  def __call__(self, nodes: Sequence[BaseNode], **kwargs) -> Sequence[BaseNode]:
+    result_nodes: list[BaseNode] = []
+    for node in nodes:
+      try:
+        data = json.loads(node.get_content())
+      except json.JSONDecodeError as exc:
+        raise ValueError("Invalid JSON content in node") from exc
+
+      flattened = self._flatten(data)
+      for item in flattened:
+        result_nodes.append(
+          TextNode(
+            text=json.dumps(item, ensure_ascii=False),
+            metadata={**node.metadata},
+          )
+        )
+    return result_nodes
+
+  def _maybe_wrap(self, items: list[Any]) -> list[Any]:
+    return [items] if len(items) < self.MIN_LIST_SPLITTED else items
+
+  def _flatten(self, value) -> list[Any]:
+    if isinstance(value, list):
+      # Heuristic 2: only flatten lists longer than MIN_LIST_SPLITTED
+      return self._maybe_wrap([item for elem in value for item in self._flatten(elem)])
+
+    if isinstance(value, dict):
+      base: dict = {}
+      recursive_items: list[tuple[str, list]] = []
+
+      for key, subvalue in value.items():
+        flat = self._flatten(subvalue)
+        if len(flat) == 1:
+          base[key] = flat[0]
+        else:
+          recursive_items.append((key, flat))
+
+      if not recursive_items:
+        return [base]
+
+      flattened: list[dict] = []
+      for key, flat_list in recursive_items:
+        # here there's a decision on how to combine json's if multiple keys are recursive
+        # Heuristic 1 : really, we want there to usually be one
+        for sub in flat_list:
+          combined = {**base, key: sub}
+          flattened.append(combined)
+      return flattened
+
+    return [value]
+
+
 def main_ingestion_pipeline(
   enable_custom: bool = False,
-  chunk_size: int = 1024,
-  chunk_overlap: int = 200,
+  chunk_size: int = 4096,
+  chunk_overlap: int = 512,
 ) -> IngestionPipeline:
   """Create the main ingestion pipeline for repository files.
 
@@ -355,8 +419,8 @@ def main_ingestion_pipeline(
   Args:
       enable_custom: If True, enable custom handling for specific files like
           'Cache.txt' and 'Scores.csv'. If False, use standard transforms.
-      chunk_size: Size of chunks for sentence splitting (default: 1024)
-      chunk_overlap: Overlap between chunks (default: 200)
+      chunk_size: Size of chunks for sentence splitting (default: 4096)
+      chunk_overlap: Overlap between chunks (default: 400)
 
   Returns:
       Configured IngestionPipeline ready to process documents
@@ -365,7 +429,7 @@ def main_ingestion_pipeline(
   extension_transforms: Dict[str, TransformComponent] = {
     ".md": MarkdownNodeParser(),
     ".html": HTMLNodeParser(),
-    ".json": JSONNodeParser(),
+    ".json": JSONFlattenTransform(),
     ".csv": ConditionalFilenameTransform(
       filename_transforms={
         "Checkmarks.csv": CheckmarksCsv(),

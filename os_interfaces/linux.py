@@ -4,6 +4,7 @@ import logging
 from contextlib import contextmanager
 from datetime import time
 from pathlib import Path
+import shutil
 from typing import Callable, Optional
 
 from desktop_notifier import DesktopNotifier
@@ -192,7 +193,8 @@ class LinuxTimerManager(TimerManager):
     base = f"{self.app_name}-notification-scheduler"
     on_cal = f"*-*-* {run_time.strftime('%H:%M')}:00"
 
-    service_txt = self._service_content(base, command, args)
+    exe_path = shutil.which(command) or command
+    service_txt = self._service_content(base, exe_path, args)
     timer_txt = self._timer_content(base, on_cal, base)
 
     with self._connect_systemd() as m:
