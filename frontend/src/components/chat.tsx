@@ -8,7 +8,7 @@ import "@llamaindex/chat-ui/styles/editor.css";
 import { useChatApi } from "@/hooks/useChatApi";
 import { useActions } from "@/hooks/useActions";
 import { ActionDialog } from "./action-dialog";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Main chat section component
@@ -28,6 +28,7 @@ export function ChatSection() {
     typeof pendingActions[0] | null
   >(null);
   const [showActionDialog, setShowActionDialog] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Apply error styling to messages with error state
   useEffect(() => {
@@ -65,6 +66,19 @@ export function ChatSection() {
       setShowActionDialog(true);
     }
   }, [pendingActions, showActionDialog]);
+
+  // Always keep the latest message in view
+  useEffect(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    // Use RAF to wait for DOM paint
+    const id = requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+    });
+
+    return () => cancelAnimationFrame(id);
+  }, [messages.length]);
 
   // Handle action confirmation
   const handleConfirmAction = async () => {
@@ -126,7 +140,10 @@ export function ChatSection() {
           <p className="text-sm">Initializing chat session...</p>
         </div>
       )}
-      <div className="flex flex-1 flex-col overflow-y-auto">
+      <div
+        className="flex flex-1 flex-col overflow-y-auto"
+        ref={chatContainerRef}
+      >
         <ChatSectionUI handler={handler} />
       </div>
 
