@@ -1,5 +1,6 @@
 import "./App.css";
 import { ChatSection } from "./components/chat";
+import { SettingsPage } from "./components/settings-page";
 import {
   createContext,
   useCallback,
@@ -33,6 +34,7 @@ export function useShowError() {
 
 function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [activePage, setActivePage] = useState<"chat" | "settings">("chat");
 
   const showError = useCallback((message: string, fullMessage?: string) => {
     const id = `${Date.now()}-${Math.random()}`;
@@ -63,9 +65,34 @@ function App() {
       <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100">
         {/* Header */}
         <header className="border-b border-slate-200 bg-white shadow-sm">
-          <div className="container mx-auto px-4 py-4">
-            <h1 className="text-2xl font-bold text-slate-800">Claro</h1>
-            <p className="text-sm text-slate-600">Your personal AI companion</p>
+          <div className="container mx-auto flex items-center justify-between px-4 py-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">Claro</h1>
+              <p className="text-sm text-slate-600">
+                Your personal AI companion
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {activePage === "settings"
+                ? (
+                  <button
+                    type="button"
+                    onClick={() => setActivePage("chat")}
+                    className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                  >
+                    Back to Chat
+                  </button>
+                )
+                : (
+                  <button
+                    type="button"
+                    onClick={() => setActivePage("settings")}
+                    className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+                  >
+                    Settings
+                  </button>
+                )}
+            </div>
           </div>
         </header>
 
@@ -73,7 +100,7 @@ function App() {
         <main className="container mx-auto flex flex-1 flex-col p-4">
           <div className="flex flex-1 flex-col rounded-lg bg-white shadow-lg">
             <div className="flex-1 p-6">
-              <ChatSection />
+              {activePage === "chat" ? <ChatSection /> : <SettingsPage />}
             </div>
           </div>
         </main>

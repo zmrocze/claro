@@ -40,6 +40,31 @@ def set_api_key(key_name: str, value: str) -> None:
     raise
 
 
+def prompt_and_store_api_key(
+  key_name: str,
+  *,
+  description: Optional[str] = None,
+  prompt_label: Optional[str] = None,
+) -> Optional[str]:
+  description_text = description or (
+    f"Enter the value for '{key_name}' so we can store it securely in your keyring."
+  )
+  prompt_text = prompt_label or f"{key_name}:"
+
+  try:
+    value = pynentry.get_pin(description=description_text, prompt=prompt_text)
+    if value:
+      set_api_key(key_name, value)
+      logger.info(f"API key '{key_name}' entered via pynentry and saved to keyring")
+      return value
+  except pynentry.PinEntryCancelled:
+    logger.warning(f"User cancelled pynentry prompt for '{key_name}'")
+  except Exception as e:
+    logger.warning(f"Failed to prompt for '{key_name}' using pynentry: {e}")
+
+  return None
+
+
 def get_api_key(key_name: str, env_fallback: Optional[str] = None) -> Optional[str]:
   """
   Retrieve an API key from keyring with optional environment variable fallback
@@ -67,19 +92,16 @@ def get_api_key(key_name: str, env_fallback: Optional[str] = None) -> Optional[s
       logger.debug(f"API key '{key_name}' retrieved from environment variable")
       return value
 
-  # Fall back to pynentry prompt
-  try:
-    value = pynentry.get_pin(
-      description=f"API key '{key_name}' not found in keyring or environment.\nPlease enter it below:",
-      prompt=f"{key_name}:",
-    )
-    if value:
-      logger.info(f"API key '{key_name}' entered via pynentry prompt")
-      return value
-  except pynentry.PinEntryCancelled:
-    logger.warning(f"User cancelled pynentry prompt for '{key_name}'")
-  except Exception as e:
-    logger.warning(f"Failed to prompt for '{key_name}' using pynentry: {e}")
+  # Fall back to pynentry prompt and persist to keyring
+  value = prompt_and_store_api_key(
+    key_name,
+    description=(
+      f"API key '{key_name}' not found in keyring or environment.\nPlease enter it below:"
+    ),
+    prompt_label=f"{key_name}:",
+  )
+  if value:
+    return value
 
   logger.warning(
     f"API key '{key_name}' not found in keyring, environment, or user input"
