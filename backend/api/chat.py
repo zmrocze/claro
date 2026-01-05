@@ -1,8 +1,10 @@
 """Chat API endpoints"""
 
+import json
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, AsyncGenerator
 from datetime import datetime
 import logging
 import traceback
@@ -26,17 +28,6 @@ class ChatMessage(BaseModel):
   name: Optional[str] = Field(default=None, description="Name of the speaker")
 
 
-class ChatResponse(BaseModel):
-  """Chat response model"""
-
-  content: str
-  role: str = "assistant"
-  timestamp: datetime
-  session_id: str
-  requires_action: bool = False
-  action_data: Optional[Dict[str, Any]] = None
-
-
 class ConversationHistory(BaseModel):
   """Conversation history model"""
 
@@ -44,109 +35,160 @@ class ConversationHistory(BaseModel):
   session_id: str
 
 
-@router.post("/message", response_model=ChatResponse)
-async def send_message(message: ChatMessage) -> ChatResponse:
+class StreamEvent(BaseModel):
+  """SSE event data model"""
+
+  event: str  # "start", "token", "done", "error"
+  data: Dict[str, Any]
+
+
+async def _stream_response(
+  message: ChatMessage,
+) -> AsyncGenerator[str, None]:
   """
-  Send a message to the AI assistant and get a response
-  Uses LangGraph agent with single thread per user (app_technical.md)
+  Generator that streams SSE events for a chat message.
+  Yields SSE-formatted strings.
   """
+  session_id: Optional[str] = None
+  accumulated_content = ""
+
   try:
-    # Get agent (uses single thread per user)
+    # Get agent
     try:
       agent = await get_agent()
     except Exception as e:
-      raise AppError.from_exception(
+      error = AppError.from_exception(
         e,
         name="AGENT_INITIALIZATION_ERROR",
         source="agent",
         context="Failed to initialize agent",
       )
+      yield f"event: error\ndata: {json.dumps({'error': error.description, 'code': error.name})}\n\n"
+      return
 
+    # Get session manager
     try:
       sessions = get_session_manager()
     except Exception as e:
-      raise AppError.from_exception(
+      error = AppError.from_exception(
         e,
         name="SESSION_MANAGER_ERROR",
         source="backend",
         context="Failed to get session manager",
       )
+      yield f"event: error\ndata: {json.dumps({'error': error.description, 'code': error.name})}\n\n"
+      return
 
-    # Get or create session for UI display only
-    session_id = message.session_id or sessions.default_session_id  # type: ignore
+    # Get or create session
+    session_id = message.session_id or sessions.default_session_id
     if not session_id:
       try:
         session_id = sessions.create_session()
-        # Link session to the single agent thread
-        sessions.set_thread_id(session_id, agent.thread_id)  # type: ignore
+        sessions.set_thread_id(session_id, agent.thread_id)
       except Exception as e:
-        raise AppError.from_exception(
+        error = AppError.from_exception(
           e,
           name="SESSION_CREATION_ERROR",
           source="backend",
           context="Failed to create new session",
         )
+        yield f"event: error\ndata: {json.dumps({'error': error.description, 'code': error.name})}\n\n"
+        return
 
-    # Add user message to ephemeral session storage (for UI)
+    # Send start event
+    yield f"event: start\ndata: {json.dumps({'session_id': session_id})}\n\n"
+
+    # Add user message to session storage
     try:
-      sessions.add_message(  # type: ignore
+      sessions.add_message(
         content=message.content,
         role=message.role,
         session_id=session_id,
         name=message.name,
       )
     except Exception as e:
-      raise AppError.from_exception(
-        e,
-        name="MESSAGE_STORAGE_ERROR",
-        source="backend",
-        context="Failed to store user message",
-      )
+      logger.warning(f"Failed to store user message: {e}")
 
-    # Invoke agent (uses single thread, handles memory internally)
+    # Stream tokens from agent
     try:
-      response_content = await agent.ainvoke(message=message.content)
+      async for chunk in agent.astream_tokens(message=message.content):
+        if chunk["type"] == "token":
+          accumulated_content += chunk["content"]
+          yield f"event: token\ndata: {json.dumps({'content': chunk['content']})}\n\n"
+        elif chunk["type"] == "done":
+          # Store final response in session
+          try:
+            sessions.add_message(
+              content=accumulated_content,
+              role="assistant",
+              session_id=session_id,
+              name="Claro",
+            )
+          except Exception as e:
+            logger.warning(f"Failed to store assistant response: {e}")
+
+          yield f"event: done\ndata: {json.dumps({'content': accumulated_content, 'session_id': session_id})}\n\n"
+
+    except AppError as e:
+      # If we have partial content, include it in error
+      error_data = {
+        "error": e.description,
+        "code": e.name,
+        "partial_content": accumulated_content,
+      }
+      yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+      return
     except Exception as e:
-      # Agent errors should be surfaced to user
-      raise AppError.from_exception(
+      error = AppError.from_exception(
         e,
         name="AGENT_EXECUTION_ERROR",
         source="agent",
         context="Agent failed to process your message",
       )
+      error_data = {
+        "error": error.description,
+        "code": error.name,
+        "partial_content": accumulated_content,
+      }
+      yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+      return
 
-    # Add assistant response to session (for UI)
-    try:
-      sessions.add_message(  # type: ignore
-        content=response_content, role="assistant", session_id=session_id, name="Claro"
-      )
-    except Exception as e:
-      # Log but don't fail if we can't store the response
-      logger.warning(f"Failed to store assistant response: {e}")
-
-    # Create response
-    response = ChatResponse(
-      content=response_content,
-      role="assistant",
-      timestamp=datetime.now(),
-      session_id=session_id,
-      requires_action=False,
-    )
-
-    logger.info(f"Processed message for session {session_id[:8]}...")
-    return response
-
-  except AppError:
-    # Re-raise AppError as-is
-    raise
   except Exception as e:
-    # Catch any unexpected errors
-    raise AppError.from_exception(
+    error = AppError.from_exception(
       e,
       name="UNEXPECTED_ERROR",
       source="backend",
-      context=f'An unexpected error occurred while processing your message (traceback: "{traceback.format_exc()}")',
+      context=f"Unexpected error: {traceback.format_exc()}",
     )
+    error_data = {
+      "error": error.description,
+      "code": error.name,
+      "partial_content": accumulated_content,
+    }
+    yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+
+
+@router.post("/message")
+async def send_message(message: ChatMessage) -> StreamingResponse:
+  """
+  Send a message to the AI assistant and stream the response.
+  Uses Server-Sent Events (SSE) for real-time token streaming.
+
+  Events:
+  - start: {"session_id": "..."} - Stream started
+  - token: {"content": "..."} - LLM token chunk
+  - done: {"content": "...", "session_id": "..."} - Complete response
+  - error: {"error": "...", "code": "...", "partial_content": "..."} - Error occurred
+  """
+  return StreamingResponse(
+    _stream_response(message),
+    media_type="text/event-stream",
+    headers={
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",  # Disable nginx buffering
+    },
+  )
 
 
 @router.get("/history/{session_id}", response_model=ConversationHistory)

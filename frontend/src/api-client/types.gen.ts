@@ -105,6 +105,30 @@ export type ActionResult = {
 export type ActionType = 'mock' | 'reminder' | 'note' | 'search';
 
 /**
+ * ApiKeyRequest
+ */
+export type ApiKeyRequest = {
+    /**
+     * Provider
+     */
+    provider: 'grok' | 'zep';
+};
+
+/**
+ * ApiKeyResponse
+ */
+export type ApiKeyResponse = {
+    /**
+     * Saved
+     */
+    saved: boolean;
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
  * ChatMessage
  *
  * Chat message model
@@ -137,37 +161,17 @@ export type ChatMessage = {
 };
 
 /**
- * ChatResponse
- *
- * Chat response model
+ * ConfigInfo
  */
-export type ChatResponse = {
+export type ConfigInfo = {
     /**
-     * Content
+     * Config Path
      */
-    content: string;
+    config_path: string;
     /**
-     * Role
+     * Keyring Service
      */
-    role?: string;
-    /**
-     * Timestamp
-     */
-    timestamp: string;
-    /**
-     * Session Id
-     */
-    session_id: string;
-    /**
-     * Requires Action
-     */
-    requires_action?: boolean;
-    /**
-     * Action Data
-     */
-    action_data?: {
-        [key: string]: unknown;
-    } | null;
+    keyring_service: string;
 };
 
 /**
@@ -326,10 +330,8 @@ export type SendMessageApiChatMessagePostResponses = {
     /**
      * Successful Response
      */
-    200: ChatResponse;
+    200: unknown;
 };
-
-export type SendMessageApiChatMessagePostResponse = SendMessageApiChatMessagePostResponses[keyof SendMessageApiChatMessagePostResponses];
 
 export type ClearConversationHistoryApiChatHistorySessionIdDeleteData = {
     body?: never;
@@ -735,6 +737,47 @@ export type GetActionHistoryApiActionsHistoryGetResponses = {
 };
 
 export type GetActionHistoryApiActionsHistoryGetResponse = GetActionHistoryApiActionsHistoryGetResponses[keyof GetActionHistoryApiActionsHistoryGetResponses];
+
+export type GetConfigInfoApiSettingsConfigGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/settings/config';
+};
+
+export type GetConfigInfoApiSettingsConfigGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConfigInfo;
+};
+
+export type GetConfigInfoApiSettingsConfigGetResponse = GetConfigInfoApiSettingsConfigGetResponses[keyof GetConfigInfoApiSettingsConfigGetResponses];
+
+export type SetApiKeyViaPromptApiSettingsApiKeyPostData = {
+    body: ApiKeyRequest;
+    path?: never;
+    query?: never;
+    url: '/api/settings/api-key';
+};
+
+export type SetApiKeyViaPromptApiSettingsApiKeyPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SetApiKeyViaPromptApiSettingsApiKeyPostError = SetApiKeyViaPromptApiSettingsApiKeyPostErrors[keyof SetApiKeyViaPromptApiSettingsApiKeyPostErrors];
+
+export type SetApiKeyViaPromptApiSettingsApiKeyPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ApiKeyResponse;
+};
+
+export type SetApiKeyViaPromptApiSettingsApiKeyPostResponse = SetApiKeyViaPromptApiSettingsApiKeyPostResponses[keyof SetApiKeyViaPromptApiSettingsApiKeyPostResponses];
 
 export type HealthCheckHealthGetData = {
     body?: never;

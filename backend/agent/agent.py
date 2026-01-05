@@ -324,21 +324,19 @@ class CarloAgent:
         context="Error invoking agent",
       )
 
-  async def astream(
-    self,
-    message: str,
-  ):
+  async def astream_tokens(self, message: str):
     """
-    Stream the agent's response
-    Uses single thread per user
+    Stream LLM tokens as they are generated.
+    Uses stream_mode="messages" for token-level streaming.
 
     Args:
       message: User message
 
     Yields:
-      Chunks of the agent's response
+      Dicts with type and content: {"type": "token", "content": "..."} or {"type": "done", "content": "..."}
     """
     try:
+      full_content = ""
       async for chunk in self.graph.astream(
         {
           "messages": [HumanMessage(content=message)],
@@ -348,8 +346,30 @@ class CarloAgent:
           "last_name": self.last_name,
         },
         config={"configurable": {"thread_id": self.thread_id}},
+        stream_mode="messages",
       ):
-        yield chunk
+        # stream_mode="messages" yields (message_chunk, metadata) tuples
+        if not isinstance(chunk, tuple) or len(chunk) != 2:
+          continue
+        msg_chunk, metadata = chunk
+        # Only yield content from AIMessage chunks (not tool calls, not human messages)
+        if not isinstance(metadata, dict):
+          continue
+        node_name = metadata.get("langgraph_node", "")
+        if (
+          hasattr(msg_chunk, "content")
+          and msg_chunk.content
+          and node_name in ("agent", "agent_after_tools")
+        ):
+          content = (
+            msg_chunk.content
+            if isinstance(msg_chunk.content, str)
+            else str(msg_chunk.content)
+          )
+          full_content += content
+          yield {"type": "token", "content": content}
+
+      yield {"type": "done", "content": full_content}
 
     except Exception as e:
       raise agent_error_from_exception(

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CancelActionApiActionsCancelActionIdDeleteData, CancelActionApiActionsCancelActionIdDeleteErrors, CancelActionApiActionsCancelActionIdDeleteResponses, CancelNotificationApiNotificationsScheduledNotificationIdDeleteData, CancelNotificationApiNotificationsScheduledNotificationIdDeleteErrors, CancelNotificationApiNotificationsScheduledNotificationIdDeleteResponses, ClearConversationHistoryApiChatHistorySessionIdDeleteData, ClearConversationHistoryApiChatHistorySessionIdDeleteErrors, ClearConversationHistoryApiChatHistorySessionIdDeleteResponses, ConfirmActionApiActionsConfirmActionIdPostData, ConfirmActionApiActionsConfirmActionIdPostErrors, ConfirmActionApiActionsConfirmActionIdPostResponses, CreateSessionApiChatSessionPostData, CreateSessionApiChatSessionPostResponses, ExecuteActionApiActionsExecutePostData, ExecuteActionApiActionsExecutePostErrors, ExecuteActionApiActionsExecutePostResponses, GetActionHistoryApiActionsHistoryGetData, GetActionHistoryApiActionsHistoryGetErrors, GetActionHistoryApiActionsHistoryGetResponses, GetActionResultApiActionsResultActionIdGetData, GetActionResultApiActionsResultActionIdGetErrors, GetActionResultApiActionsResultActionIdGetResponses, GetConversationHistoryApiChatHistorySessionIdGetData, GetConversationHistoryApiChatHistorySessionIdGetErrors, GetConversationHistoryApiChatHistorySessionIdGetResponses, GetNotificationConfigApiNotificationsConfigGetData, GetNotificationConfigApiNotificationsConfigGetResponses, GetPendingActionsApiActionsPendingGetData, GetPendingActionsApiActionsPendingGetResponses, GetScheduledNotificationsApiNotificationsScheduledGetData, GetScheduledNotificationsApiNotificationsScheduledGetResponses, HealthCheckHealthGetData, HealthCheckHealthGetResponses, ListSessionsApiChatSessionsGetData, ListSessionsApiChatSessionsGetResponses, PrepareNotificationsApiNotificationsPreparePostData, PrepareNotificationsApiNotificationsPreparePostResponses, RootGetData, RootGetResponses, SendMessageApiChatMessagePostData, SendMessageApiChatMessagePostErrors, SendMessageApiChatMessagePostResponses, TestNotificationApiNotificationsTestPostData, TestNotificationApiNotificationsTestPostResponses, UpdateNotificationConfigApiNotificationsConfigPostData, UpdateNotificationConfigApiNotificationsConfigPostErrors, UpdateNotificationConfigApiNotificationsConfigPostResponses } from './types.gen';
+import type { CancelActionApiActionsCancelActionIdDeleteData, CancelActionApiActionsCancelActionIdDeleteErrors, CancelActionApiActionsCancelActionIdDeleteResponses, CancelNotificationApiNotificationsScheduledNotificationIdDeleteData, CancelNotificationApiNotificationsScheduledNotificationIdDeleteErrors, CancelNotificationApiNotificationsScheduledNotificationIdDeleteResponses, ClearConversationHistoryApiChatHistorySessionIdDeleteData, ClearConversationHistoryApiChatHistorySessionIdDeleteErrors, ClearConversationHistoryApiChatHistorySessionIdDeleteResponses, ConfirmActionApiActionsConfirmActionIdPostData, ConfirmActionApiActionsConfirmActionIdPostErrors, ConfirmActionApiActionsConfirmActionIdPostResponses, CreateSessionApiChatSessionPostData, CreateSessionApiChatSessionPostResponses, ExecuteActionApiActionsExecutePostData, ExecuteActionApiActionsExecutePostErrors, ExecuteActionApiActionsExecutePostResponses, GetActionHistoryApiActionsHistoryGetData, GetActionHistoryApiActionsHistoryGetErrors, GetActionHistoryApiActionsHistoryGetResponses, GetActionResultApiActionsResultActionIdGetData, GetActionResultApiActionsResultActionIdGetErrors, GetActionResultApiActionsResultActionIdGetResponses, GetConfigInfoApiSettingsConfigGetData, GetConfigInfoApiSettingsConfigGetResponses, GetConversationHistoryApiChatHistorySessionIdGetData, GetConversationHistoryApiChatHistorySessionIdGetErrors, GetConversationHistoryApiChatHistorySessionIdGetResponses, GetNotificationConfigApiNotificationsConfigGetData, GetNotificationConfigApiNotificationsConfigGetResponses, GetPendingActionsApiActionsPendingGetData, GetPendingActionsApiActionsPendingGetResponses, GetScheduledNotificationsApiNotificationsScheduledGetData, GetScheduledNotificationsApiNotificationsScheduledGetResponses, HealthCheckHealthGetData, HealthCheckHealthGetResponses, ListSessionsApiChatSessionsGetData, ListSessionsApiChatSessionsGetResponses, PrepareNotificationsApiNotificationsPreparePostData, PrepareNotificationsApiNotificationsPreparePostResponses, RootGetData, RootGetResponses, SendMessageApiChatMessagePostData, SendMessageApiChatMessagePostErrors, SendMessageApiChatMessagePostResponses, SetApiKeyViaPromptApiSettingsApiKeyPostData, SetApiKeyViaPromptApiSettingsApiKeyPostErrors, SetApiKeyViaPromptApiSettingsApiKeyPostResponses, TestNotificationApiNotificationsTestPostData, TestNotificationApiNotificationsTestPostResponses, UpdateNotificationConfigApiNotificationsConfigPostData, UpdateNotificationConfigApiNotificationsConfigPostErrors, UpdateNotificationConfigApiNotificationsConfigPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -21,8 +21,14 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 /**
  * Send Message
  *
- * Send a message to the AI assistant and get a response
- * Uses LangGraph agent with single thread per user (app_technical.md)
+ * Send a message to the AI assistant and stream the response.
+ * Uses Server-Sent Events (SSE) for real-time token streaming.
+ *
+ * Events:
+ * - start: {"session_id": "..."} - Stream started
+ * - token: {"content": "..."} - LLM token chunk
+ * - done: {"content": "...", "session_id": "..."} - Complete response
+ * - error: {"error": "...", "code": "...", "partial_content": "..."} - Error occurred
  */
 export const sendMessageApiChatMessagePost = <ThrowOnError extends boolean = false>(options: Options<SendMessageApiChatMessagePostData, ThrowOnError>) => {
     return (options.client ?? client).post<SendMessageApiChatMessagePostResponses, SendMessageApiChatMessagePostErrors, ThrowOnError>({
@@ -237,9 +243,35 @@ export const getActionHistoryApiActionsHistoryGet = <ThrowOnError extends boolea
 };
 
 /**
- * Health Check
+ * Get Config Info
  *
- * Health check endpoint
+ * Return basic configuration details for the app.
+ */
+export const getConfigInfoApiSettingsConfigGet = <ThrowOnError extends boolean = false>(options?: Options<GetConfigInfoApiSettingsConfigGetData, ThrowOnError>) => {
+    return (options?.client ?? client).get<GetConfigInfoApiSettingsConfigGetResponses, unknown, ThrowOnError>({
+        url: '/api/settings/config',
+        ...options
+    });
+};
+
+/**
+ * Set Api Key Via Prompt
+ *
+ * Prompt the user for an API key via pynentry and save it to keyring.
+ */
+export const setApiKeyViaPromptApiSettingsApiKeyPost = <ThrowOnError extends boolean = false>(options: Options<SetApiKeyViaPromptApiSettingsApiKeyPostData, ThrowOnError>) => {
+    return (options.client ?? client).post<SetApiKeyViaPromptApiSettingsApiKeyPostResponses, SetApiKeyViaPromptApiSettingsApiKeyPostErrors, ThrowOnError>({
+        url: '/api/settings/api-key',
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+        }
+    });
+};
+
+/**
+ * Health Check
  */
 export const healthCheckHealthGet = <ThrowOnError extends boolean = false>(options?: Options<HealthCheckHealthGetData, ThrowOnError>) => {
     return (options?.client ?? client).get<HealthCheckHealthGetResponses, unknown, ThrowOnError>({
@@ -250,8 +282,6 @@ export const healthCheckHealthGet = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Root
- *
- * Root endpoint - API only mode
  */
 export const rootGet = <ThrowOnError extends boolean = false>(options?: Options<RootGetData, ThrowOnError>) => {
     return (options?.client ?? client).get<RootGetResponses, unknown, ThrowOnError>({
