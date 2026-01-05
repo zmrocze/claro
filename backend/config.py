@@ -13,7 +13,7 @@ import pynentry
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(os.getenv("CLARO_DOTENV_PATH"))
 
 # Configuration constants
 KEYRING_SERVICE = "claro-app"
@@ -21,7 +21,6 @@ GROK_API_KEY = "grok_api_key"
 ZEP_API_KEY = "zep_api_key"
 
 # API endpoints
-GROK_API_BASE_URL = "https://api.x.ai/v1"  # Grok uses OpenAI-compatible API
 ZEP_API_URL = os.getenv("ZEP_API_URL", None)  # Default to local Zep
 
 

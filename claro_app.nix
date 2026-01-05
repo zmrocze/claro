@@ -44,6 +44,7 @@ stdenv.mkDerivation {
       ./claro_app_linux.py
       ./claro_app_core.py
       ./backend
+      ./.env
     ];
   };
   
@@ -67,12 +68,16 @@ stdenv.mkDerivation {
     mkdir -p $out/bin
     mkdir -p $out/share/claro/frontend
     mkdir -p $out/share/claro/backend
+    mkdir -p $out/share/claro
     
     # Copy frontend assets
     cp -r ${frontend}/* $out/share/claro/frontend/
     
     # Copy backend source code
     cp -r $src/backend/* $out/share/claro/backend/
+
+    # Copy environment file
+    cp $src/.env $out/share/claro/.env
     
     # Install the application entry point script
     cp claro_app_linux.py $out/share/claro/
@@ -82,6 +87,7 @@ stdenv.mkDerivation {
     # The wrapper sets PYTHONPATH to include the backend code
     makeWrapper ${backend}/bin/python $out/bin/claro \
       --add-flags "$out/share/claro/claro_app_linux.py" \
+      --set-default CLARO_DOTENV_PATH "$out/share/claro/.env" \
       --set PYTHONPATH "$out/share/claro:${backend}/${python3.sitePackages}:${python3.pkgs.pygobject3}/${python3.sitePackages}:${python3.pkgs.pycairo}/${python3.sitePackages}" \
       --prefix PATH : "${lib.makeBinPath [ pinentry ]}"
     
