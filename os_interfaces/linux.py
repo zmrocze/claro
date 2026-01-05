@@ -109,6 +109,7 @@ class LinuxTimerManager(TimerManager):
     cleanup: bool = False,
   ) -> str:
     after_line = f"After={after}.timer\n" if after else ""
+    command = shutil.which(command) or command
     exec_line = " ".join([command, *args])
 
     # Add cleanup for one-shot notification timers
