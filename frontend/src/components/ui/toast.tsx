@@ -20,7 +20,7 @@ export function Toast({ id, message, fullMessage, onClose }: ToastProps) {
     <div
       className={cn(
         "mb-2 flex cursor-pointer flex-col rounded-lg bg-red-500 shadow-lg transition-all hover:bg-red-600",
-        isExpanded ? "w-96" : "w-80",
+        isExpanded ? "w-[34rem]" : "w-[29rem]",
       )}
       style={{
         pointerEvents: "auto",
@@ -28,9 +28,9 @@ export function Toast({ id, message, fullMessage, onClose }: ToastProps) {
         // Add explicit inline styles to ensure visibility
         backgroundColor: "#ef4444",
         color: "white",
-        padding: "0.75rem",
+        padding: "1.2rem",
         borderRadius: "0.5rem",
-        width: isExpanded ? "24rem" : "20rem",
+        width: isExpanded ? "34rem" : "29rem",
         boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
         cursor: "pointer",
         display: "flex",
@@ -60,12 +60,12 @@ export function Toast({ id, message, fullMessage, onClose }: ToastProps) {
             <pre
               style={{
                 marginTop: "0.5rem",
-                maxHeight: "16rem",
+                maxHeight: "19rem",
                 overflow: "auto",
                 borderRadius: "0.25rem",
                 backgroundColor: "rgba(0, 0, 0, 0.2)",
-                padding: "0.5rem",
-                fontSize: "0.75rem",
+                padding: "0.625rem",
+                fontSize: "0.875rem",
                 color: "white",
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-word",
@@ -90,7 +90,7 @@ export function Toast({ id, message, fullMessage, onClose }: ToastProps) {
           }}
           aria-label="Close"
         >
-          <X style={{ width: "1rem", height: "1rem" }} />
+          <X style={{ width: "1.25rem", height: "1.25rem" }} />
         </button>
       </div>
     </div>
