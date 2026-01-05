@@ -6,6 +6,7 @@
 , gtk3
 , webkitgtk_4_1
 , gst_all_1
+, libsecret
 , frontend
 , backend
 , python3
@@ -26,6 +27,7 @@ stdenv.mkDerivation {
   ];
   
   buildInputs = [
+    libsecret
     gtk3              # Required: GTK library itself
     webkitgtk_4_1     # Required: WebKit2 rendering engine (v2.22+)
     gobject-introspection  # Required: also needed here for typelibs
