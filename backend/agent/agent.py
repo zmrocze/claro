@@ -17,7 +17,9 @@ from langchain_core.messages import (
   HumanMessage,
   trim_messages,
 )
-from langchain_openai import ChatOpenAI
+
+# from langchain_openai import ChatOpenAI
+from langchain_xai import ChatXAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import REMOVE_ALL_MESSAGES, RemoveMessage
@@ -30,7 +32,6 @@ from backend.agent.tools import mock_action
 from backend.config import (
   AppConfig,
   get_grok_api_key,
-  GROK_API_BASE_URL,
 )
 from backend.exceptions import AppError
 from backend.memory import create_memory_provider
@@ -76,12 +77,11 @@ def system_content_tool(context: str):
 
 def create_grok_llm(tools: list) -> Runnable[LanguageModelInput, BaseMessage]:
   """Create Grok LLM instance with tools"""
-  return ChatOpenAI(
+  return ChatXAI(
     api_key=SecretStr(get_grok_api_key()),
-    base_url=GROK_API_BASE_URL,
     model=AppConfig.LLM_MODEL,
     temperature=AppConfig.LLM_TEMPERATURE,
-    max_completion_tokens=AppConfig.LLM_MAX_TOKENS,
+    max_tokens=AppConfig.LLM_MAX_TOKENS,
   ).bind_tools(tools)
 
 

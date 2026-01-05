@@ -12,6 +12,7 @@ dependencies = [
   "langgraph",
   "langchain",
   "langchain-openai",
+  "langchain-xai",
   "zep-python",
   "pyyaml",
   "pydantic",
