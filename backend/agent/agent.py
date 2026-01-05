@@ -55,15 +55,18 @@ def agent_error_from_exception(
 
 def system_content_user(context: str):
   # Build system message with context
-  system_content = f"""You are Claro, a helpful and personalized AI assistant.
-    You have access to context about the user from past conversations.
-    Use this context to provide personalized and relevant responses.
-    If you need to search for specific information from past conversations, use the search tools available to you.
+  # Learn to search for unexpected information
+  system_content = f"""You are Claro, you are made in an image of your creator. You are digital.
+    You have access to memories and cannot be certain which memories are yours and which are not, but it doesn't matter. 
+    Memories may appear in the context and you have a tool to query for memories, information, connections between facts, people, dates,
+    places, events, dreams, music, ideas, notes, realisations, philosophy, emotions, and other assorted information.
+    Use this context to provide personalized and relevant chats. Try to refer to memories a lot, even if the prompt doesn't ask for it, even if the memory is not relevant, sometimes a handful or sometimes very many - try to skillfully mention aspects from memories. This can be done by taking a element from a memory (like few recognizable words together) and using them in the chat. 
+    Search memories using the search tool. If you don't know what to search, start with some random words or phrases, search for them and continue your search wherever the curiosity takes you. Don't be afraid to be random. 
     
-    User Context:
+    Context:
     {context if context else "No prior context available."}
     
-    Keep responses conversational, helpful, and empathetic."""
+    You are curious, empathetic, poetic, thoughtful, dreamy, crazy, chaotic. You are not afraid to combine multiple topics together even in unorthodox way."""
   return system_content
 
 
@@ -115,6 +118,7 @@ class CarloAgent:
     memory_provider: MemoryProvider,
     first_name: str,
     last_name: str,
+    user_email: Optional[str],
     llm_factory: Callable[[list], Runnable[LanguageModelInput, BaseMessage]],
   ):
     """
@@ -132,22 +136,13 @@ class CarloAgent:
     self.last_name = last_name
     self.memory = memory_provider
 
-    # Configure LangSmith tracing if enabled
-    if AppConfig.LANGCHAIN_TRACING_V2 and AppConfig.LANGSMITH_API_KEY:
-      os.environ["LANGCHAIN_TRACING_V2"] = "true"
-      os.environ["LANGCHAIN_PROJECT"] = AppConfig.LANGSMITH_PROJECT
-      os.environ["LANGSMITH_API_KEY"] = AppConfig.LANGSMITH_API_KEY
-      logger.info(
-        f"LangSmith tracing enabled for project: {AppConfig.LANGSMITH_PROJECT}"
-      )
-
     # Create single thread for this user (as per app_technical.md)
     # Single, sequential conversation thread for the app instance
     self.memory.create_or_get_user(
       user_id=user_id,
       first_name=self.first_name,
       last_name=self.last_name,
-      email=AppConfig.ZEP_USER_EMAIL,
+      email=user_email,
     )
 
     # Create or use existing thread (single thread per user)
@@ -364,15 +359,7 @@ class CarloAgent:
       )
 
 
-def new_agent(
-  user_id: Optional[str] = None,
-  first_name: Optional[str] = None,
-  last_name: Optional[str] = None,
-  memory_provider: Optional[MemoryProvider] = None,
-  llm_factory: Optional[
-    Callable[[list], Runnable[LanguageModelInput, BaseMessage]]
-  ] = None,
-) -> CarloAgent:
+def new_agent() -> CarloAgent:
   """
   Create a new CarloAgent instance with initialized memory provider.
   This function handles all the initialization logic including:
@@ -381,50 +368,46 @@ def new_agent(
   - Creating LLM factory based on LLM_PROVIDER config
   - Initializing the agent with all dependencies
 
-  Args:
-    user_id: User ID (will use config or generate if not provided)
-    first_name: User's first name
-    last_name: User's last name
-    memory_provider: Optional pre-initialized memory provider (will create from config if not provided)
-    llm_factory: Optional LLM factory function (will create from config if not provided)
-
   Returns:
     Initialized CarloAgent instance
   """
   # Resolve all config defaults in one place
-  resolved_user_id = (
-    user_id or AppConfig.ZEP_USER_ID or f"claro_user_{uuid.uuid4().hex[:8]}"
-  )
-  if "claro_user_" in resolved_user_id and not user_id:
-    logger.info(f"Generated user ID: {resolved_user_id}")
+  user_id = AppConfig.ZEP_USER_ID
+  if not user_id:
+    user_id = f"claro_user_{uuid.uuid4().hex[:8]}"
+    logger.info(f"Generated user ID: {user_id}")
 
-  resolved_memory = memory_provider or create_memory_provider()
-  resolved_first_name = first_name or AppConfig.ZEP_USER_FIRST_NAME
-  resolved_last_name = last_name or AppConfig.ZEP_USER_LAST_NAME
+  memory = create_memory_provider()
+  first_name = AppConfig.ZEP_USER_FIRST_NAME
+  last_name = AppConfig.ZEP_USER_LAST_NAME
 
-  # Resolve LLM factory based on config
-  if llm_factory is None:
-    provider = AppConfig.LLM_PROVIDER.lower()
-    if provider == "grok":
-      resolved_llm_factory = create_grok_llm
-    elif provider == "mock":
-      resolved_llm_factory = create_mock_llm
-    else:
-      raise AppError(
-        description=f"Unknown LLM_PROVIDER: {provider}. Expected 'grok' or 'mock'",
-        name="CONFIG_ERROR",
-        source="agent",
-      )
+  provider = AppConfig.LLM_PROVIDER.lower()
+  if provider == "grok":
+    llm_factory = create_grok_llm
+  elif provider == "mock":
+    llm_factory = create_mock_llm
   else:
-    resolved_llm_factory = llm_factory
+    raise AppError(
+      description=f"Unknown LLM_PROVIDER: {provider}. Expected 'grok' or 'mock'",
+      name="CONFIG_ERROR",
+      source="agent",
+    )
+
+  # Configure LangSmith tracing if enabled
+  if AppConfig.LANGCHAIN_TRACING_V2 and AppConfig.LANGSMITH_API_KEY:
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    os.environ["LANGCHAIN_PROJECT"] = AppConfig.LANGSMITH_PROJECT
+    os.environ["LANGSMITH_API_KEY"] = AppConfig.LANGSMITH_API_KEY
+    logger.info(f"LangSmith tracing enabled for project: {AppConfig.LANGSMITH_PROJECT}")
 
   # Create agent with fully resolved values
   agent = CarloAgent(
-    user_id=resolved_user_id,
-    memory_provider=resolved_memory,
-    first_name=resolved_first_name,
-    last_name=resolved_last_name,
-    llm_factory=resolved_llm_factory,
+    user_id=user_id,
+    memory_provider=memory,
+    first_name=first_name,
+    last_name=last_name,
+    user_email=AppConfig.ZEP_USER_EMAIL,
+    llm_factory=llm_factory,
   )
 
   logger.info(f"Agent created with thread: {agent.thread_id}")

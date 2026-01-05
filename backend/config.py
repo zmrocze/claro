@@ -169,8 +169,8 @@ class AppConfig:
 
   # LLM settings
   LLM_MODEL = os.getenv("LLM_MODEL", "grok-beta")
-  LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
-  LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "2000"))
+  LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "2.0"))
+  LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4000"))
   LLM_PROVIDER = os.getenv("LLM_PROVIDER", "mock")  # Options: "grok", "mock"
 
   # Memory provider settings
@@ -178,7 +178,6 @@ class AppConfig:
 
   # Zep settings
   ZEP_API_URL = ZEP_API_URL
-  ZEP_COLLECTION_NAME = os.getenv("ZEP_COLLECTION_NAME", "carol-memories")
 
   # User settings
   ZEP_USER_ID = os.getenv("ZEP_USER_ID")  # None means will prompt or auto-generate
