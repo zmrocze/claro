@@ -11,15 +11,13 @@ import {
   createSessionApiChatSessionPost,
   getConversationHistoryApiChatHistorySessionIdGet,
 } from "@/api-client";
+import {
+  createSseClient,
+  type StreamEvent,
+} from "@/api-client/core/serverSentEvents.gen";
+import { client } from "@/lib/api-config";
 import { sessionStorage } from "@/lib/session-storage";
 import { useShowError } from "@/App";
-
-// Import API config to ensure client is configured
-import "@/lib/api-config";
-
-// API base URL for streaming endpoint
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ??
-  "http://localhost:8000";
 
 // Extended Message type with error state
 export interface Message extends LlamaMessage {
@@ -34,6 +32,25 @@ interface UseChatApiResult {
   sendMessage: (content: string) => Promise<void>;
 }
 
+// SSE event data types
+interface TokenEvent {
+  content: string;
+}
+interface StartEvent {
+  session_id: string;
+}
+interface DoneEvent {
+  content: string;
+  session_id: string;
+}
+interface ErrorEvent {
+  error: string;
+  code: string;
+  partial_content?: string;
+}
+
+type SseEventData = TokenEvent | StartEvent | DoneEvent | ErrorEvent;
+
 /**
  * Convert backend ChatMessage to llamaindex Message format
  */
@@ -43,19 +60,6 @@ function chatMessageToLlamaMessage(msg: ChatMessage, index: number): Message {
     role: msg.role === "user" ? "user" : "assistant",
     parts: [{ type: "text", text: msg.content }],
   };
-}
-
-/**
- * Parse SSE event from a line
- */
-function parseSSELine(line: string): { event?: string; data?: string } {
-  if (line.startsWith("event: ")) {
-    return { event: line.slice(7) };
-  }
-  if (line.startsWith("data: ")) {
-    return { data: line.slice(6) };
-  }
-  return {};
 }
 
 /**
@@ -158,6 +162,7 @@ export function useChatApi(): UseChatApiResult {
         abortControllerRef.current.abort();
       }
       abortControllerRef.current = new AbortController();
+      abortControllerRef.current = new AbortController();
 
       setIsLoading(true);
 
@@ -167,165 +172,93 @@ export function useChatApi(): UseChatApiResult {
         role: "user",
         parts: [{ type: "text", text: content }],
       };
-
       setMessages((prev) => [...prev, userMessage]);
 
-      // Assistant message will be added when first token arrives
+      // Track assistant message state
       const assistantMessageId = `assistant-${Date.now()}`;
       let assistantMessageAdded = false;
       let accumulatedContent = "";
 
+      // Helper to add or update assistant message
+      const updateAssistantMessage = (text: string, error = false) => {
+        if (!assistantMessageAdded) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: assistantMessageId,
+              role: "assistant",
+              parts: [{ type: "text", text }],
+              error,
+            },
+          ]);
+          assistantMessageAdded = true;
+        } else {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, parts: [{ type: "text", text }], error }
+                : msg
+            )
+          );
+        }
+      };
+
+      // Handle SSE events
+      const handleSseEvent = (event: StreamEvent<unknown>) => {
+        const { data, event: eventType } = event;
+        const eventData = data as SseEventData;
+
+        switch (eventType) {
+          case "start":
+            console.log(
+              "Stream started:",
+              (eventData as StartEvent).session_id,
+            );
+            break;
+
+          case "token":
+            accumulatedContent += (eventData as TokenEvent).content;
+            updateAssistantMessage(accumulatedContent);
+            break;
+
+          case "done":
+            console.log("Stream done");
+            updateAssistantMessage((eventData as DoneEvent).content);
+            break;
+
+          case "error": {
+            const { error, partial_content } = eventData as ErrorEvent;
+            const errorText = partial_content
+              ? `${partial_content}\n\n⚠️ Error: ${error}`
+              : `⚠️ Error: ${error}`;
+            updateAssistantMessage(errorText, true);
+            showError("Message failed", error);
+            break;
+          }
+        }
+      };
+
       try {
-        const response = await fetch(`${API_BASE_URL}/api/chat/message`, {
+        const baseUrl = client.getConfig().baseUrl || "";
+
+        const { stream } = createSseClient<SseEventData>({
+          url: `${baseUrl}/api/chat/message`,
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "text/event-stream",
-          },
-          body: JSON.stringify({
+          headers: { "Content-Type": "application/json" },
+          serializedBody: JSON.stringify({
             content,
             role: "user",
             session_id: sessionId,
           }),
           signal: abortControllerRef.current.signal,
+          onSseEvent: handleSseEvent,
+          onSseError: (error) => console.error("SSE error:", error),
+          sseMaxRetryAttempts: 0,
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`);
-        }
-
-        const reader = response.body?.getReader();
-        if (!reader) {
-          throw new Error("No response body");
-        }
-
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let currentEvent = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || ""; // Keep incomplete line in buffer
-
-          for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine) continue;
-
-            const { event, data } = parseSSELine(trimmedLine);
-
-            if (event) {
-              currentEvent = event;
-            } else if (data) {
-              try {
-                const parsed = JSON.parse(data);
-
-                switch (currentEvent) {
-                  case "start":
-                    // Stream started, session_id confirmed
-                    console.log("Stream started:", parsed.session_id);
-                    break;
-
-                  case "token":
-                    // Add assistant message on first token if not added yet
-                    if (!assistantMessageAdded) {
-                      assistantMessageAdded = true;
-                      setMessages((prev) => [
-                        ...prev,
-                        {
-                          id: assistantMessageId,
-                          role: "assistant",
-                          parts: [{ type: "text", text: parsed.content }],
-                        },
-                      ]);
-                      accumulatedContent = parsed.content;
-                    } else {
-                      // Append token to accumulated content
-                      accumulatedContent += parsed.content;
-                      setMessages((prev) =>
-                        prev.map((msg) =>
-                          msg.id === assistantMessageId
-                            ? {
-                              ...msg,
-                              parts: [{
-                                type: "text",
-                                text: accumulatedContent,
-                              }],
-                            }
-                            : msg
-                        )
-                      );
-                    }
-                    break;
-
-                  case "done":
-                    // Stream complete - ensure message exists
-                    console.log("Stream done");
-                    if (!assistantMessageAdded) {
-                      // No tokens received, add the complete message
-                      setMessages((prev) => [
-                        ...prev,
-                        {
-                          id: assistantMessageId,
-                          role: "assistant",
-                          parts: [{ type: "text", text: parsed.content }],
-                        },
-                      ]);
-                    } else {
-                      setMessages((prev) =>
-                        prev.map((msg) =>
-                          msg.id === assistantMessageId
-                            ? {
-                              ...msg,
-                              parts: [{ type: "text", text: parsed.content }],
-                            }
-                            : msg
-                        )
-                      );
-                    }
-                    break;
-
-                  case "error": {
-                    // Error occurred - show partial content + error
-                    console.error("Stream error:", parsed);
-                    const errorContent = parsed.partial_content
-                      ? `${parsed.partial_content}\n\n⚠️ Error: ${parsed.error}`
-                      : `⚠️ Error: ${parsed.error}`;
-                    if (!assistantMessageAdded) {
-                      setMessages((prev) => [
-                        ...prev,
-                        {
-                          id: assistantMessageId,
-                          role: "assistant",
-                          parts: [{ type: "text", text: errorContent }],
-                          error: true,
-                        },
-                      ]);
-                    } else {
-                      setMessages((prev) =>
-                        prev.map((msg) =>
-                          msg.id === assistantMessageId
-                            ? {
-                              ...msg,
-                              parts: [{ type: "text", text: errorContent }],
-                              error: true,
-                            }
-                            : msg
-                        )
-                      );
-                    }
-                    showError("Message failed", parsed.error);
-                    break;
-                  }
-                }
-              } catch (parseError) {
-                console.error("Failed to parse SSE data:", data, parseError);
-              }
-            }
-          }
+        // Consume the stream (events handled by onSseEvent)
+        for await (const _ of stream) {
+          // Events are processed in handleSseEvent callback
         }
       } catch (error) {
         if ((error as Error).name === "AbortError") {
@@ -340,30 +273,7 @@ export function useChatApi(): UseChatApiResult {
         const errorText = accumulatedContent
           ? `${accumulatedContent}\n\n⚠️ Error: ${errorMessage}`
           : `⚠️ Error: ${errorMessage}`;
-
-        if (!assistantMessageAdded) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: assistantMessageId,
-              role: "assistant",
-              parts: [{ type: "text", text: errorText }],
-              error: true,
-            },
-          ]);
-        } else {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? {
-                  ...msg,
-                  parts: [{ type: "text", text: errorText }],
-                  error: true,
-                }
-                : msg
-            )
-          );
-        }
+        updateAssistantMessage(errorText, true);
         showError("Failed to send message", errorMessage);
       } finally {
         setIsLoading(false);

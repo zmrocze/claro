@@ -13,6 +13,7 @@ from langchain_core.messages import BaseMessage
 
 from langchain_core.messages import (
   AIMessage,
+  AIMessageChunk,
   SystemMessage,
   HumanMessage,
   trim_messages,
@@ -337,7 +338,7 @@ class CarloAgent:
     """
     try:
       full_content = ""
-      async for chunk in self.graph.astream(
+      async for token, metadata in self.graph.astream(
         {
           "messages": [HumanMessage(content=message)],
           "thread_id": self.thread_id,
@@ -348,26 +349,17 @@ class CarloAgent:
         config={"configurable": {"thread_id": self.thread_id}},
         stream_mode="messages",
       ):
-        # stream_mode="messages" yields (message_chunk, metadata) tuples
-        if not isinstance(chunk, tuple) or len(chunk) != 2:
-          continue
-        msg_chunk, metadata = chunk
-        # Only yield content from AIMessage chunks (not tool calls, not human messages)
-        if not isinstance(metadata, dict):
-          continue
-        node_name = metadata.get("langgraph_node", "")
+        # stream_mode="messages" yields (token, metadata) tuples
+        # Only yield text content from agent nodes (skip tools node, etc.)
+        node = metadata.get("langgraph_node", "") if isinstance(metadata, dict) else ""
         if (
-          hasattr(msg_chunk, "content")
-          and msg_chunk.content
-          and node_name in ("agent", "agent_after_tools")
+          node in ("agent", "agent_after_tools")
+          and isinstance(token, AIMessageChunk)
+          and token.content
+          and isinstance(token.content, str)
         ):
-          content = (
-            msg_chunk.content
-            if isinstance(msg_chunk.content, str)
-            else str(msg_chunk.content)
-          )
-          full_content += content
-          yield {"type": "token", "content": content}
+          full_content += token.content
+          yield {"type": "token", "content": token.content}
 
       yield {"type": "done", "content": full_content}
 

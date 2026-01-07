@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any, AsyncGenerator
 from datetime import datetime
 import logging
-import traceback
 
 from backend.agent import get_agent
 from backend.sessions import get_session_manager
@@ -49,123 +48,49 @@ async def _stream_response(
   Generator that streams SSE events for a chat message.
   Yields SSE-formatted strings.
   """
-  session_id: Optional[str] = None
-  accumulated_content = ""
+  # Get agent and session manager (let exceptions propagate - FastAPI will handle)
+  agent = await get_agent()
+  sessions = get_session_manager()
 
+  # Get or create session
+  session_id = message.session_id or sessions.default_session_id
+  if not session_id:
+    session_id = sessions.create_session()
+    sessions.set_thread_id(session_id, agent.thread_id)
+
+  # Send start event
+  yield f"event: start\ndata: {json.dumps({'session_id': session_id})}\n\n"
+
+  # Add user message to session storage
   try:
-    # Get agent
-    try:
-      agent = await get_agent()
-    except Exception as e:
-      error = AppError.from_exception(
-        e,
-        name="AGENT_INITIALIZATION_ERROR",
-        source="agent",
-        context="Failed to initialize agent",
-      )
-      yield f"event: error\ndata: {json.dumps({'error': error.description, 'code': error.name})}\n\n"
-      return
-
-    # Get session manager
-    try:
-      sessions = get_session_manager()
-    except Exception as e:
-      error = AppError.from_exception(
-        e,
-        name="SESSION_MANAGER_ERROR",
-        source="backend",
-        context="Failed to get session manager",
-      )
-      yield f"event: error\ndata: {json.dumps({'error': error.description, 'code': error.name})}\n\n"
-      return
-
-    # Get or create session
-    session_id = message.session_id or sessions.default_session_id
-    if not session_id:
-      try:
-        session_id = sessions.create_session()
-        sessions.set_thread_id(session_id, agent.thread_id)
-      except Exception as e:
-        error = AppError.from_exception(
-          e,
-          name="SESSION_CREATION_ERROR",
-          source="backend",
-          context="Failed to create new session",
-        )
-        yield f"event: error\ndata: {json.dumps({'error': error.description, 'code': error.name})}\n\n"
-        return
-
-    # Send start event
-    yield f"event: start\ndata: {json.dumps({'session_id': session_id})}\n\n"
-
-    # Add user message to session storage
-    try:
-      sessions.add_message(
-        content=message.content,
-        role=message.role,
-        session_id=session_id,
-        name=message.name,
-      )
-    except Exception as e:
-      logger.warning(f"Failed to store user message: {e}")
-
-    # Stream tokens from agent
-    try:
-      async for chunk in agent.astream_tokens(message=message.content):
-        if chunk["type"] == "token":
-          accumulated_content += chunk["content"]
-          yield f"event: token\ndata: {json.dumps({'content': chunk['content']})}\n\n"
-        elif chunk["type"] == "done":
-          # Store final response in session
-          try:
-            sessions.add_message(
-              content=accumulated_content,
-              role="assistant",
-              session_id=session_id,
-              name="Claro",
-            )
-          except Exception as e:
-            logger.warning(f"Failed to store assistant response: {e}")
-
-          yield f"event: done\ndata: {json.dumps({'content': accumulated_content, 'session_id': session_id})}\n\n"
-
-    except AppError as e:
-      # If we have partial content, include it in error
-      error_data = {
-        "error": e.description,
-        "code": e.name,
-        "partial_content": accumulated_content,
-      }
-      yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
-      return
-    except Exception as e:
-      error = AppError.from_exception(
-        e,
-        name="AGENT_EXECUTION_ERROR",
-        source="agent",
-        context="Agent failed to process your message",
-      )
-      error_data = {
-        "error": error.description,
-        "code": error.name,
-        "partial_content": accumulated_content,
-      }
-      yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
-      return
-
-  except Exception as e:
-    error = AppError.from_exception(
-      e,
-      name="UNEXPECTED_ERROR",
-      source="backend",
-      context=f"Unexpected error: {traceback.format_exc()}",
+    sessions.add_message(
+      content=message.content,
+      role=message.role,
+      session_id=session_id,
+      name=message.name,
     )
-    error_data = {
-      "error": error.description,
-      "code": error.name,
-      "partial_content": accumulated_content,
-    }
-    yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+  except Exception as e:
+    logger.warning(f"Failed to store user message: {e}")
+
+  # Stream tokens from agent
+  accumulated_content = ""
+  async for chunk in agent.astream_tokens(message=message.content):
+    if chunk["type"] == "token":
+      accumulated_content += chunk["content"]
+      yield f"event: token\ndata: {json.dumps({'content': chunk['content']})}\n\n"
+    elif chunk["type"] == "done":
+      # Store final response in session
+      try:
+        sessions.add_message(
+          content=accumulated_content,
+          role="assistant",
+          session_id=session_id,
+          name="Claro",
+        )
+      except Exception as e:
+        logger.warning(f"Failed to store assistant response: {e}")
+
+      yield f"event: done\ndata: {json.dumps({'content': accumulated_content, 'session_id': session_id})}\n\n"
 
 
 @router.post("/message")
