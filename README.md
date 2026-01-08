@@ -39,3 +39,9 @@ Currently available on linux. Build with nix with
 `nix build github:zmrocze/claro`.
 
 Android version on the way!
+
+## Modern UI
+
+![Claro modern UI](documentations/Screenshot%20From%202026-01-08%2020-16-40.png)
+
+_Screenshot: Claro._
