@@ -227,12 +227,12 @@ export function useChatApi(): UseChatApiResult {
             break;
 
           case "error": {
-            const { error, partial_content } = eventData as ErrorEvent;
-            const errorText = partial_content
-              ? `${partial_content}\n\n⚠️ Error: ${error}`
-              : `⚠️ Error: ${error}`;
-            updateAssistantMessage(errorText, true);
-            showError("Message failed", error);
+            const { error, code, partial_content } = eventData as ErrorEvent;
+            // Only show partial content in chat if any, error details go to toast
+            if (partial_content) {
+              updateAssistantMessage(partial_content, true);
+            }
+            showError(`Error: ${code}`, error);
             break;
           }
         }

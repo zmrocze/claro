@@ -49,6 +49,7 @@ def create_memory_provider(
     # This is the ONLY place where we read ZEP_API_KEY
     zep_api_key = api_key or get_zep_api_key()
     zep_api_url = api_url or AppConfig.ZEP_API_URL
+    logger.info(f"Using Zep API URL: {zep_api_url} and API Key: {zep_api_key[:8] if zep_api_key else "NONE"}...")
     return ZepMemory(api_key=zep_api_key, api_url=zep_api_url)
   else:
     raise ValueError(

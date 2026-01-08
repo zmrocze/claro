@@ -21,7 +21,7 @@ GROK_API_KEY = "grok_api_key"
 ZEP_API_KEY = "zep_api_key"
 
 # API endpoints
-ZEP_API_URL = os.getenv("ZEP_API_URL", None)  # Default to local Zep
+ZEP_API_URL = os.getenv("ZEP_API_URL") or None
 
 
 def set_api_key(key_name: str, value: str) -> None:

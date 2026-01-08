@@ -175,7 +175,7 @@ class CarloAgent:
     ):
       """Main chatbot logic with memory integration"""
       try:
-        context = self.memory.get_context(thread_id=self.thread_id, mode="basic")
+        context = self.memory.get_context(thread_id=self.thread_id)
         if context is None:
           context = ""
 
