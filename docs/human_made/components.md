@@ -52,7 +52,7 @@ Its core is a simple ReAct agent:
 1. it queries an llm with the users prompt
 2. executes tools if the llm requested, else return message to the user
 3. queries llm with the tool call results
-4. go back to 2
+4. goes back to 2
 
 The llm queries are aided with context from the long term memory, which includes
 the recent conversation history and additional arbitrary textual information
