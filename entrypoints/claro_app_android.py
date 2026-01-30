@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from claro_app_core import run_pywebview_app
+from entrypoints.claro_app_core import run_pywebview_app
 from os_interfaces.base import OSImplementations
 from os_interfaces.android import AndroidNotificationManager, AndroidTimerManager
 

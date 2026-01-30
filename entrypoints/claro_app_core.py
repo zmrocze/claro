@@ -23,6 +23,7 @@ import uvicorn
 import webview
 
 from os_interfaces.base import OSImplementations
+from backend.main import create_app
 
 WEBVIEW_DEBUG = os.getenv("CLARO_WEBVIEW_DEBUG", "").strip().lower() in {"1", "true"}
 
@@ -40,8 +41,6 @@ def _start_backend_server(frontend_path: Path, os_impl: OSImplementations) -> No
   try:
     logger.info("Starting FastAPI backend on %s:%s", BACKEND_HOST, BACKEND_PORT)
     os.environ["CARLO_FRONTEND_PATH"] = str(frontend_path)
-
-    from backend.main import create_app
 
     app = create_app(os_impl=os_impl)
 

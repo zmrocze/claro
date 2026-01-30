@@ -56,7 +56,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["backend", "os_interfaces", "remember", "notification", "notification_schedule"]
+packages = ["backend", "os_interfaces", "remember", "notification", "notification_schedule", "entrypoints"]
 
 # [tool.hatch.build.targets.wheel]
 # packages = ["backend", "os_interfaces", "remember", "notification", "notification_schedule"]

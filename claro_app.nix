@@ -41,8 +41,8 @@ stdenv.mkDerivation {
   src = lib.fileset.toSource {
     root = ./.;
     fileset = lib.fileset.unions [
-      ./claro_app_linux.py
-      ./claro_app_core.py
+      ./entrypoints/claro_app_linux.py
+      ./entrypoints/claro_app_core.py
       ./backend
       ./.env
     ];
@@ -52,8 +52,8 @@ stdenv.mkDerivation {
     runHook preBuild
     
     # Copy the application entry point script
-    cp $src/claro_app_core.py claro_app_core.py
-    cp $src/claro_app_linux.py claro_app_linux.py
+    cp $src/entrypoints/claro_app_core.py claro_app_core.py
+    cp $src/entrypoints/claro_app_linux.py claro_app_linux.py
     
     # Substitute the frontend path placeholder
     substituteInPlace claro_app_linux.py \

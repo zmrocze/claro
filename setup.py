@@ -4,16 +4,17 @@ from setuptools import find_packages, setup
 # default to legacy builds and need explicit python_requires plus py_modules
 # for top-level entrypoint files.
 
-core_py_modules = [
-  "claro_app_android",
-  "claro_app_core",
-  "claro_app",
-  "claro_app_linux",
-  "claro_platform",
-]
+# core_py_modules = [
+#   "claro_app_android",
+#   "claro_app_core",
+#   "claro_app",
+#   "claro_app_linux",
+# ]
 
 package_list = find_packages(
   include=[
+    "entrypoints",
+    "entrypoints.*",
     "backend",
     "backend.*",
     "os_interfaces",
@@ -33,7 +34,6 @@ setup(
   description="Personal AI assistant app with chat interface and notifications",
   python_requires=">=3.11",
   packages=package_list,
-  py_modules=core_py_modules,
   include_package_data=True,
   install_requires=[
     "fastapi==0.119.0",
