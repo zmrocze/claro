@@ -68,6 +68,7 @@ async def test_chatbot_with_tool_calls():
   # Create agent with mock memory and llm factory
   agent = CarloAgent(
     user_id="test_user_tool_calls",
+    user_email="test_user_tool_calls@example.com",
     first_name="Test",
     last_name="User",
     memory_provider=mock_memory,

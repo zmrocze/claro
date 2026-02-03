@@ -95,13 +95,6 @@ async def test_api_endpoints():
         else:
           print(f"⚠ Sessions endpoint returned {response.status_code}")
 
-        # Test notifications config
-        response = await client.get("http://localhost:8000/api/notifications/config")
-        if response.status_code == 200:
-          print("✓ Notifications endpoint working")
-        else:
-          print(f"⚠ Notifications endpoint returned {response.status_code}")
-
         # Test actions pending
         response = await client.get("http://localhost:8000/api/actions/pending")
         if response.status_code == 200:

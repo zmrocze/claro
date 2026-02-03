@@ -322,14 +322,15 @@ class CheckmarksCsv(CSVNodeParser):
         "CSV must have at least 3 columns: date, column, <empty column after trailing comma> "
       )
     categories = header[1:-1]  # Skip date column and trailing empty column
+    # CSV trailing comma creates empty string, not space
     assert (
-      header[-1] == " "
+      header[-1].strip() == ""
     )  # CSV is expected to have empty column due to trailing comma
 
     result_nodes = []
     for row in rows[1:]:
       date_value = row[0]
-      assert row[-1] == " "
+      assert row[-1].strip() == ""
       for cat, val in zip(categories, row[1:]):
         if int(val) == 2:
           result_nodes.append(

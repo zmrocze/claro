@@ -296,9 +296,10 @@ class CommitDiff:
         yield from self._process_entire_csv_file(filepath)
       else:
         yield from self._process_csv_rows(filepath, added_lines_with_nos)
-    except Exception:
+    except Exception as e:
       logger.warning(
-        f"Failed to process CSV file {filepath}, falling back to generic processing"
+        f"Failed to process CSV file {filepath}, falling back to generic processing. Error: {e}",
+        exc_info=True,
       )
       yield from self._process_generic_hunk(filepath, added_lines_with_nos)
 

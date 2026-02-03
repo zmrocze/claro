@@ -232,9 +232,10 @@ class TestCheckmarksCSV:
   def test_checkmarks_csv_filters_non_positive_values(self, temp_dir):
     """Test that Checkmarks.csv only includes positive values (2)."""
     csv_file = temp_dir / "Checkmarks.csv"
-    csv_file.write_text("""date,exercise,meditation,reading, 
+    csv_content = """date,exercise,meditation,reading, 
 2024-01-01,2,1,0, 
-2024-01-02,2,2,-1, """)
+2024-01-02,2,2,-1, """
+    csv_file.write_text(csv_content)
 
     patch_text = f"""--- a/{csv_file}
 +++ b/{csv_file}
@@ -259,9 +260,10 @@ class TestCheckmarksCSV:
   def test_checkmarks_csv_header_changed_processes_full_file(self, temp_dir):
     """Test that changing Checkmarks.csv header processes entire file."""
     csv_file = temp_dir / "Checkmarks.csv"
-    csv_file.write_text("""date,exercise,meditation, 
+    csv_content = """date,exercise,meditation, 
 2024-01-01,2,2, 
-2024-01-02,2,1, """)
+2024-01-02,2,1, """
+    csv_file.write_text(csv_content)
 
     # Change header - add reading category
     patch_text = f"""--- a/{csv_file}
