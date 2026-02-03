@@ -103,35 +103,49 @@ export function useChatApi(): UseChatApiResult {
     setIsInitializing(true);
 
     try {
-      // Try to get existing session
-      let existingSessionId: string | null = sessionStorage.getSessionId();
+      // Check for session_id in URL query parameters (from deep link)
+      const urlParams = new URLSearchParams(globalThis.location.search);
+      const urlSessionId = urlParams.get("session_id");
 
-      if (!existingSessionId) {
-        // Create new session
-        console.log("Creating new session...");
-        const response = await createSessionApiChatSessionPost();
-        console.log("Session creation response:", response);
+      let existingSessionId: string | null = null;
 
-        // Backend error already shown by interceptor
-        if (response.error) {
-          return;
-        }
-
-        // Validate response data
-        if (response.data?.session_id) {
-          existingSessionId = response.data.session_id;
-          sessionStorage.setSessionId(existingSessionId as string);
-          console.log("Session created:", existingSessionId);
-        } else {
-          // Backend returned success but invalid data - validation error
-          showError(
-            "Failed to initialize chat session",
-            "Backend returned invalid session response (missing session_id)",
-          );
-          return;
-        }
+      if (urlSessionId) {
+        // Use session from deep link
+        console.log("Using session from deep link:", urlSessionId);
+        existingSessionId = urlSessionId;
+        // Store it for future use
+        sessionStorage.setSessionId(urlSessionId);
       } else {
-        console.log("Using existing session:", existingSessionId);
+        // Try to get existing session from storage
+        existingSessionId = sessionStorage.getSessionId();
+
+        if (!existingSessionId) {
+          // Create new session
+          console.log("Creating new session...");
+          const response = await createSessionApiChatSessionPost();
+          console.log("Session creation response:", response);
+
+          // Backend error already shown by interceptor
+          if (response.error) {
+            return;
+          }
+
+          // Validate response data
+          if (response.data?.session_id) {
+            existingSessionId = response.data.session_id;
+            sessionStorage.setSessionId(existingSessionId as string);
+            console.log("Session created:", existingSessionId);
+          } else {
+            // Backend returned success but invalid data - validation error
+            showError(
+              "Failed to initialize chat session",
+              "Backend returned invalid session response (missing session_id)",
+            );
+            return;
+          }
+        } else {
+          console.log("Using existing session:", existingSessionId);
+        }
       }
 
       setSessionId(existingSessionId);

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Claro AI Assistant
+Comment=Personal AI assistant with chat interface
+Exec=claro --from-notification %u
+Icon=claro
+Terminal=false
+Categories=Utility;Office;
+MimeType=x-scheme-handler/claro;
+StartupNotify=true

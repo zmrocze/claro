@@ -45,6 +45,7 @@ stdenv.mkDerivation {
       ./entrypoints/claro_app_core.py
       ./backend
       ./.env
+      ./claro.desktop
     ];
   };
   
@@ -69,6 +70,7 @@ stdenv.mkDerivation {
     mkdir -p $out/share/claro/frontend
     mkdir -p $out/share/claro/backend
     mkdir -p $out/share/claro
+    mkdir -p $out/share/applications
     
     # Copy frontend assets
     cp -r ${frontend}/* $out/share/claro/frontend/
@@ -82,6 +84,9 @@ stdenv.mkDerivation {
     # Install the application entry point script
     cp claro_app_linux.py $out/share/claro/
     cp claro_app_core.py $out/share/claro/
+
+    # Install desktop file for deep link handling
+    cp $src/claro.desktop $out/share/applications/
 
     # Create wrapper script that uses backend's Python environment
     # The wrapper sets PYTHONPATH to include the backend code

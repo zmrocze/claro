@@ -17,6 +17,7 @@ from pathlib import Path
 
 from platformdirs import user_config_dir
 from backend.agent.agent import new_agent
+from backend.sessions import get_session_manager
 from notification_schedule import parse_notification_config
 from os_interfaces.base import OSImplementations
 from os_interfaces.linux import LinuxNotificationManager
@@ -27,21 +28,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def open_app_on_click() -> None:
-  """Callback to open an app when notification is clicked.
+def open_app_on_click(session_id: str) -> None:
+  """Callback to open Claro app with a specific session.
 
-  Opens Firefox as a test app (commonly installed on GNOME Linux).
-  This will be replaced with the Claro app deep link later.
+  Args:
+      session_id: The session ID to open in Claro
   """
   try:
-    # Use xdg-open to open Firefox (or default browser)
-    # This is a common app on GNOME Linux systems
+    deep_link = f"claro://{session_id}"
     subprocess.Popen(
-      ["xdg-open", "https://www.mozilla.org"],
+      ["xdg-open", deep_link],
       stdout=subprocess.DEVNULL,
       stderr=subprocess.DEVNULL,
     )
-    logger.info("Opened app via deep link")
+    logger.info(f"Opened Claro app via deep link: {deep_link}")
   except Exception as e:
     logger.error(f"Failed to open app: {e}")
 
@@ -66,6 +66,7 @@ async def get_claro_response(prompt: str) -> str:
 
 async def create_notification(
   response_text: str,
+  session_id: str,
   done_event: asyncio.Event,
   os_impl: OSImplementations,
 ) -> None:
@@ -73,6 +74,7 @@ async def create_notification(
 
   Args:
       response_text: Text to display in the notification
+      session_id: Session ID to pass to the app when clicked
       done_event: Event to signal when notification is clicked or dismissed
   """
   notifier = os_impl.notification_manager(app_name="Carlo")
@@ -85,7 +87,7 @@ async def create_notification(
 
   def on_clicked():
     """Handle notification click."""
-    open_app_on_click()
+    open_app_on_click(session_id)
     done_event.set()
 
   def on_dismissed():
@@ -149,11 +151,19 @@ async def main(os_impl: OSImplementations | None = None) -> None:
   response = await get_claro_response(prompt)
   logger.info(f"Got response: {response[:100]}...")
 
+  # Create a new session for this notification
+  session_manager = get_session_manager()
+  session_id = session_manager.create_session()
+  logger.info(f"Created session {session_id} for notification")
+
+  # Add the user prompt and agent response to the session
+  session_manager.add_message(session_id=session_id, content=response, role="assistant")
+
   # Create event to signal when notification is interacted with
   done_event = asyncio.Event()
 
-  # Create notification with response
-  await create_notification(response, done_event, os_impl)
+  # Create notification with response and session ID
+  await create_notification(response, session_id, done_event, os_impl)
 
   # Wait for user to click or dismiss the notification
   logger.info("Waiting for notification interaction...")

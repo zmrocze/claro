@@ -74,11 +74,14 @@ def _wait_for_backend(timeout: int = 10) -> bool:
   return False
 
 
-def _create_window() -> None:
+def _create_window(session_id: str | None = None) -> None:
   cache_bust = int(time.time())
+  url = f"http://{BACKEND_HOST}:{BACKEND_PORT}?v={cache_bust}"
+  if session_id:
+    url += f"&session_id={session_id}"
   webview.create_window(
     title="Claro AI Assistant",
-    url=f"http://{BACKEND_HOST}:{BACKEND_PORT}?v={cache_bust}",
+    url=url,
     width=1200,
     height=800,
     resizable=True,
@@ -87,8 +90,12 @@ def _create_window() -> None:
   )
 
 
-def run_pywebview_app(*, frontend_path: Path, os_impl: OSImplementations) -> None:
+def run_pywebview_app(
+  *, frontend_path: Path, os_impl: OSImplementations, session_id: str | None = None
+) -> None:
   logger.info("Starting Claro UI shell...")
+  if session_id:
+    logger.info(f"Opening with session: {session_id}")
 
   if not frontend_path.exists():
     raise FileNotFoundError(f"Frontend path does not exist: {frontend_path}")
@@ -104,7 +111,7 @@ def run_pywebview_app(*, frontend_path: Path, os_impl: OSImplementations) -> Non
   if not _wait_for_backend():
     raise RuntimeError("Backend failed to start")
 
-  _create_window()
+  _create_window(session_id=session_id)
 
   logger.info("Starting pywebview...")
   webview.start(debug=WEBVIEW_DEBUG, private_mode=False, storage_path="~/.claro")
