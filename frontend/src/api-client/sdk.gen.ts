@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CancelActionApiActionsCancelActionIdDeleteData, CancelActionApiActionsCancelActionIdDeleteErrors, CancelActionApiActionsCancelActionIdDeleteResponses, CancelNotificationApiNotificationsScheduledNotificationIdDeleteData, CancelNotificationApiNotificationsScheduledNotificationIdDeleteErrors, CancelNotificationApiNotificationsScheduledNotificationIdDeleteResponses, ClearConversationHistoryApiChatHistorySessionIdDeleteData, ClearConversationHistoryApiChatHistorySessionIdDeleteErrors, ClearConversationHistoryApiChatHistorySessionIdDeleteResponses, ConfirmActionApiActionsConfirmActionIdPostData, ConfirmActionApiActionsConfirmActionIdPostErrors, ConfirmActionApiActionsConfirmActionIdPostResponses, CreateSessionApiChatSessionPostData, CreateSessionApiChatSessionPostResponses, ExecuteActionApiActionsExecutePostData, ExecuteActionApiActionsExecutePostErrors, ExecuteActionApiActionsExecutePostResponses, GetActionHistoryApiActionsHistoryGetData, GetActionHistoryApiActionsHistoryGetErrors, GetActionHistoryApiActionsHistoryGetResponses, GetActionResultApiActionsResultActionIdGetData, GetActionResultApiActionsResultActionIdGetErrors, GetActionResultApiActionsResultActionIdGetResponses, GetConfigInfoApiSettingsConfigGetData, GetConfigInfoApiSettingsConfigGetResponses, GetConversationHistoryApiChatHistorySessionIdGetData, GetConversationHistoryApiChatHistorySessionIdGetErrors, GetConversationHistoryApiChatHistorySessionIdGetResponses, GetNotificationConfigApiNotificationsConfigGetData, GetNotificationConfigApiNotificationsConfigGetResponses, GetPendingActionsApiActionsPendingGetData, GetPendingActionsApiActionsPendingGetResponses, GetScheduledNotificationsApiNotificationsScheduledGetData, GetScheduledNotificationsApiNotificationsScheduledGetResponses, HealthCheckHealthGetData, HealthCheckHealthGetResponses, ListSessionsApiChatSessionsGetData, ListSessionsApiChatSessionsGetResponses, PrepareNotificationsApiNotificationsPreparePostData, PrepareNotificationsApiNotificationsPreparePostResponses, RootGetData, RootGetResponses, SendMessageApiChatMessagePostData, SendMessageApiChatMessagePostErrors, SendMessageApiChatMessagePostResponses, SetApiKeyViaPromptApiSettingsApiKeyPostData, SetApiKeyViaPromptApiSettingsApiKeyPostErrors, SetApiKeyViaPromptApiSettingsApiKeyPostResponses, TestNotificationApiNotificationsTestPostData, TestNotificationApiNotificationsTestPostResponses, UpdateNotificationConfigApiNotificationsConfigPostData, UpdateNotificationConfigApiNotificationsConfigPostErrors, UpdateNotificationConfigApiNotificationsConfigPostResponses } from './types.gen';
+import type { CancelActionApiActionsCancelActionIdDeleteData, CancelActionApiActionsCancelActionIdDeleteErrors, CancelActionApiActionsCancelActionIdDeleteResponses, ClearConversationHistoryApiChatHistorySessionIdDeleteData, ClearConversationHistoryApiChatHistorySessionIdDeleteErrors, ClearConversationHistoryApiChatHistorySessionIdDeleteResponses, ConfirmActionApiActionsConfirmActionIdPostData, ConfirmActionApiActionsConfirmActionIdPostErrors, ConfirmActionApiActionsConfirmActionIdPostResponses, CreateSessionApiChatSessionPostData, CreateSessionApiChatSessionPostResponses, ExecuteActionApiActionsExecutePostData, ExecuteActionApiActionsExecutePostErrors, ExecuteActionApiActionsExecutePostResponses, GetActionHistoryApiActionsHistoryGetData, GetActionHistoryApiActionsHistoryGetErrors, GetActionHistoryApiActionsHistoryGetResponses, GetActionResultApiActionsResultActionIdGetData, GetActionResultApiActionsResultActionIdGetErrors, GetActionResultApiActionsResultActionIdGetResponses, GetConfigInfoApiSettingsConfigGetData, GetConfigInfoApiSettingsConfigGetResponses, GetConversationHistoryApiChatHistorySessionIdGetData, GetConversationHistoryApiChatHistorySessionIdGetErrors, GetConversationHistoryApiChatHistorySessionIdGetResponses, GetPendingActionsApiActionsPendingGetData, GetPendingActionsApiActionsPendingGetResponses, HealthCheckHealthGetData, HealthCheckHealthGetResponses, ListSessionsApiChatSessionsGetData, ListSessionsApiChatSessionsGetResponses, RootGetData, RootGetResponses, SendMessageApiChatMessagePostData, SendMessageApiChatMessagePostErrors, SendMessageApiChatMessagePostResponses, SetApiKeyViaPromptApiSettingsApiKeyPostData, SetApiKeyViaPromptApiSettingsApiKeyPostErrors, SetApiKeyViaPromptApiSettingsApiKeyPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -86,82 +86,6 @@ export const createSessionApiChatSessionPost = <ThrowOnError extends boolean = f
 export const listSessionsApiChatSessionsGet = <ThrowOnError extends boolean = false>(options?: Options<ListSessionsApiChatSessionsGetData, ThrowOnError>) => {
     return (options?.client ?? client).get<ListSessionsApiChatSessionsGetResponses, unknown, ThrowOnError>({
         url: '/api/chat/sessions',
-        ...options
-    });
-};
-
-/**
- * Get Notification Config
- *
- * Get current notification configuration
- */
-export const getNotificationConfigApiNotificationsConfigGet = <ThrowOnError extends boolean = false>(options?: Options<GetNotificationConfigApiNotificationsConfigGetData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetNotificationConfigApiNotificationsConfigGetResponses, unknown, ThrowOnError>({
-        url: '/api/notifications/config',
-        ...options
-    });
-};
-
-/**
- * Update Notification Config
- *
- * Update notification configuration
- */
-export const updateNotificationConfigApiNotificationsConfigPost = <ThrowOnError extends boolean = false>(options: Options<UpdateNotificationConfigApiNotificationsConfigPostData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateNotificationConfigApiNotificationsConfigPostResponses, UpdateNotificationConfigApiNotificationsConfigPostErrors, ThrowOnError>({
-        url: '/api/notifications/config',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
-
-/**
- * Prepare Notifications
- *
- * Prepare notifications for the next day
- */
-export const prepareNotificationsApiNotificationsPreparePost = <ThrowOnError extends boolean = false>(options?: Options<PrepareNotificationsApiNotificationsPreparePostData, ThrowOnError>) => {
-    return (options?.client ?? client).post<PrepareNotificationsApiNotificationsPreparePostResponses, unknown, ThrowOnError>({
-        url: '/api/notifications/prepare',
-        ...options
-    });
-};
-
-/**
- * Get Scheduled Notifications
- *
- * Get list of scheduled notifications
- */
-export const getScheduledNotificationsApiNotificationsScheduledGet = <ThrowOnError extends boolean = false>(options?: Options<GetScheduledNotificationsApiNotificationsScheduledGetData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetScheduledNotificationsApiNotificationsScheduledGetResponses, unknown, ThrowOnError>({
-        url: '/api/notifications/scheduled',
-        ...options
-    });
-};
-
-/**
- * Cancel Notification
- *
- * Cancel a scheduled notification
- */
-export const cancelNotificationApiNotificationsScheduledNotificationIdDelete = <ThrowOnError extends boolean = false>(options: Options<CancelNotificationApiNotificationsScheduledNotificationIdDeleteData, ThrowOnError>) => {
-    return (options.client ?? client).delete<CancelNotificationApiNotificationsScheduledNotificationIdDeleteResponses, CancelNotificationApiNotificationsScheduledNotificationIdDeleteErrors, ThrowOnError>({
-        url: '/api/notifications/scheduled/{notification_id}',
-        ...options
-    });
-};
-
-/**
- * Test Notification
- *
- * Send a test notification immediately
- */
-export const testNotificationApiNotificationsTestPost = <ThrowOnError extends boolean = false>(options?: Options<TestNotificationApiNotificationsTestPostData, ThrowOnError>) => {
-    return (options?.client ?? client).post<TestNotificationApiNotificationsTestPostResponses, unknown, ThrowOnError>({
-        url: '/api/notifications/test',
         ...options
     });
 };

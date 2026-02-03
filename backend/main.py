@@ -15,7 +15,6 @@ from pathlib import Path
 from asgi_correlation_id import CorrelationIdFilter
 
 from backend.api.chat import router as chat_router
-from backend.api.notifications import router as notifications_router
 from backend.api.actions import router as actions_router
 from backend.api.settings import router as settings_router
 from backend.middleware import ErrorHandlingMiddleware, setup_logging_middleware
@@ -110,7 +109,6 @@ def create_app(*, os_impl: OSImplementations | None = None) -> FastAPI:
 
   # Include routers
   app.include_router(chat_router)
-  app.include_router(notifications_router)
   app.include_router(actions_router)
   app.include_router(settings_router)
 

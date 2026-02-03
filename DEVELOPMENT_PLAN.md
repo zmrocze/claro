@@ -165,14 +165,6 @@ beyond plan
 - `GET /api/chat/history/{session_id}` - Get conversation history ✅
 - `DELETE /api/chat/history/{session_id}` - Delete session history ✅
 
-*Notifications* (`/api/notifications`):
-- `GET /api/notifications/config` - Get notification configuration ✅
-- `POST /api/notifications/config` - Update notification configuration ✅
-- `POST /api/notifications/prepare` - Schedule notifications for next day ✅
-- `GET /api/notifications/scheduled` - List scheduled notifications ✅
-- `DELETE /api/notifications/scheduled/{notification_id}` - Cancel notification ✅
-- `POST /api/notifications/test` - Send test notification immediately ✅
-
 *Actions* (`/api/actions`):
 - `POST /api/actions/execute` - Execute action (requires confirmation) ✅
 - `GET /api/actions/pending` - List pending actions awaiting confirmation ✅
@@ -309,8 +301,7 @@ notifications:
 **TODO**:
 
 1. Create default `config/notifications.yaml`
-2. Implement YAML loading in `backend/api/notifications.py`
-3. Support runtime config updates via API
+2. YAML loading implemented in `notification_schedule/config_parser.py`
 
 ### 5.2 Notification Flow ⚠️
 
@@ -323,12 +314,10 @@ notifications:
 
 **Current Status**:
 
-- ✅ Step 1-2: `GET /api/notifications/prepare` endpoint generates notification
-  schedule
+- ✅ Step 1-2: Notification scheduling via `notification_schedule/` CLI tool
 - ✅ Step 3: LLM content generation works (uses Grok to generate based on
   prompt)
-- ❌ Step 3: OS timer integration missing (notifications not actually scheduled
-  with OS)
+- ✅ Step 3: OS timer integration via systemd (Linux)
 - ❌ Step 4: Deep link handling not implemented
 
 **Remaining Work**:
@@ -459,15 +448,11 @@ Used for android build.
    - Load sessions on app startup
    - Test session restoration
 
-2. ❌ **Create Notification Configuration** (Phase 5.1)
-   - Create `config/notifications.yaml` with example notifications
-   - Implement YAML loading in `backend/api/notifications.py`
-   - Add configuration validation
-
-3. ❌ **Integrate OS Notifications** (Phase 5.2)
-   - Integrate `desktop-notifier` for Linux
-   - Implement timer scheduling in `os_interfaces/linux.py`
-   - Test notification delivery
+2. ✅ **Notification System** (Phase 5)
+   - YAML configuration implemented in `notification_schedule/config_parser.py`
+   - CLI tools: `notification_schedule/` and `notification/`
+   - OS integration via systemd timers (Linux)
+   - LLM-generated notification content
 
 **Week 3: Testing & Polish**
 
