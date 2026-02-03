@@ -19,6 +19,7 @@ from notification_schedule.config_parser import (
   TimeRange,
   parse_notification_config,
 )
+from backend.config import AppConfig
 from os_interfaces.base import ScheduleTimeRange, TimerConfig
 from os_interfaces.base import OSImplementations
 from os_interfaces.linux import LinuxTimerManager
@@ -87,7 +88,7 @@ def schedule_notification(
     )
 
     try:
-      timer_id = timer_mgr.schedule_timer(timer_config)
+      timer_id = timer_mgr.schedule_timer(timer_config, appconfig=AppConfig)
       timing_str = (
         f"{config.timing.from_time}-{config.timing.to_time}"
         if isinstance(config.timing, TimeRange)

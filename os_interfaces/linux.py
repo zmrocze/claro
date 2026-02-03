@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from datetime import time
 from pathlib import Path
 import shutil
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from desktop_notifier import DesktopNotifier
 from pystemd.dbuslib import DBus
@@ -107,6 +107,7 @@ class LinuxTimerManager(TimerManager):
     args: list[str],
     after: str | None = None,
     cleanup: bool = False,
+    appconfig: Any = None,
   ) -> str:
     after_line = f"After={after}.timer\n" if after else ""
     command = shutil.which(command) or command
@@ -124,12 +125,18 @@ class LinuxTimerManager(TimerManager):
         f"systemctl --user daemon-reload'\n"
       )
 
+    # Add environment variables from appconfig if provided
+    env_section = ""
+    if appconfig and hasattr(appconfig, "to_systemd_environment_string"):
+      env_section = appconfig.to_systemd_environment_string()
+
     return (
       "[Unit]\n"
       f"Description={self.app_name} service {base}\n"
       f"{after_line}"
       "\n[Service]\n"
       "Type=oneshot\n"
+      f"{env_section}"
       f"ExecStart={exec_line}\n"
       f"{cleanup_line}"
       "\n[Install]\n"
@@ -154,7 +161,7 @@ class LinuxTimerManager(TimerManager):
     )
 
   # ---- public API ----
-  def schedule_timer(self, timer_config: TimerConfig) -> str:
+  def schedule_timer(self, timer_config: TimerConfig, appconfig: Any = None) -> str:
     """Create persistent oneshot timer via unit files and start it"""
     t = timer_config.timing
     name_gist = (
@@ -176,7 +183,7 @@ class LinuxTimerManager(TimerManager):
       randomized = None
 
     service_txt = self._service_content(
-      base, timer_config.command, timer_config.args, cleanup=True
+      base, timer_config.command, timer_config.args, cleanup=True, appconfig=appconfig
     )
     timer_txt = self._timer_content(base, on_cal, base, randomized)
 
@@ -189,13 +196,15 @@ class LinuxTimerManager(TimerManager):
     logger.info(f"Scheduled oneshot '{timer_config.command}' as {base} at {on_cal}")
     return base
 
-  def schedule_daily(self, command: str, args: list[str], run_time: time) -> None:
+  def schedule_daily(
+    self, command: str, args: list[str], run_time: time, appconfig: Any = None
+  ) -> None:
     """Install/enable a daily scheduler; idempotent."""
     base = f"{self.app_name}-notification-scheduler"
     on_cal = f"*-*-* {run_time.strftime('%H:%M')}:00"
 
     exe_path = shutil.which(command) or command
-    service_txt = self._service_content(base, exe_path, args)
+    service_txt = self._service_content(base, exe_path, args, appconfig=appconfig)
     timer_txt = self._timer_content(base, on_cal, base)
 
     with self._connect_systemd() as m:

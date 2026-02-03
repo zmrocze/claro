@@ -22,6 +22,7 @@ from backend.middleware import ErrorHandlingMiddleware, setup_logging_middleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
+from backend.config import AppConfig
 from os_interfaces.base import OSImplementations
 from os_interfaces.linux import LinuxTimerManager
 
@@ -44,7 +45,10 @@ async def _schedule_daily_notifications(os_impl: OSImplementations):
     timer_mgr = os_impl.timer_manager(app_name="claro")
     run_time = time(hour=3, minute=0)
     timer_mgr.schedule_daily(
-      command="claro-notification-scheduler", args=[], run_time=run_time
+      command="claro-notification-scheduler",
+      args=[],
+      run_time=run_time,
+      appconfig=AppConfig,
     )
     logger.info("Daily notification scheduler configured")
   except Exception as e:

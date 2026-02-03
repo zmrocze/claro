@@ -214,6 +214,49 @@ class AppConfig:
   # Logging
   LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
+  @classmethod
+  def to_systemd_environment_string(cls) -> str:
+    """Convert AppConfig values to systemd Environment= directives.
+
+    Returns:
+      String containing Environment= lines for systemd service files.
+    """
+    env_vars = [
+      ("HOST", cls.HOST),
+      ("PORT", str(cls.PORT)),
+      ("CORS_ORIGINS", ",".join(cls.CORS_ORIGINS)),
+      ("MAX_SESSION_MESSAGES", str(cls.MAX_SESSION_MESSAGES)),
+      ("MAX_MESSAGE_AGE_HOURS", str(cls.MAX_MESSAGE_AGE_HOURS)),
+      ("SESSION_TIMEOUT_HOURS", str(cls.SESSION_TIMEOUT_HOURS)),
+      ("LLM_MODEL", cls.LLM_MODEL),
+      ("LLM_TEMPERATURE", str(cls.LLM_TEMPERATURE)),
+      ("LLM_MAX_TOKENS", str(cls.LLM_MAX_TOKENS)),
+      ("LLM_PROVIDER", cls.LLM_PROVIDER),
+      ("MEMORY_PROVIDER", cls.MEMORY_PROVIDER),
+      ("ZEP_USER_FIRST_NAME", cls.ZEP_USER_FIRST_NAME),
+      ("ZEP_USER_LAST_NAME", cls.ZEP_USER_LAST_NAME),
+      ("LANGSMITH_PROJECT", cls.LANGSMITH_PROJECT),
+      ("LANGCHAIN_TRACING_V2", "true" if cls.LANGCHAIN_TRACING_V2 else "false"),
+      ("LOG_LEVEL", cls.LOG_LEVEL),
+    ]
+
+    # Add optional values if they exist
+    if cls.ZEP_API_URL:
+      env_vars.append(("ZEP_API_URL", cls.ZEP_API_URL))
+    if cls.ZEP_USER_ID:
+      env_vars.append(("ZEP_USER_ID", cls.ZEP_USER_ID))
+    if cls.ZEP_USER_EMAIL:
+      env_vars.append(("ZEP_USER_EMAIL", cls.ZEP_USER_EMAIL))
+    if cls.LANGSMITH_API_KEY:
+      env_vars.append(("LANGSMITH_API_KEY", cls.LANGSMITH_API_KEY))
+
+    # # Add CLARO_DOTENV_PATH if it exists
+    # dotenv_path = os.getenv("CLARO_DOTENV_PATH")
+    # if dotenv_path:
+    #   env_vars.append(("CLARO_DOTENV_PATH", dotenv_path))
+
+    return "".join(f'Environment="{key}={value}"\n' for key, value in env_vars)
+
 
 # Utility function for CLI key management
 if __name__ == "__main__":

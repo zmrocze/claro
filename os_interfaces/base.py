@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, time
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 
 @dataclass(frozen=True)
@@ -66,11 +66,12 @@ class TimerManager(ABC):
   """Abstract base class for timer/alarm management"""
 
   @abstractmethod
-  def schedule_timer(self, timer_config: TimerConfig) -> str:
+  def schedule_timer(self, timer_config: TimerConfig, appconfig: Any = None) -> str:
     """Schedule a one-shot timer to run a command.
 
     Args:
       timer_config: Configuration with timing (time or TimeRange), command, args, and optional name
+      appconfig: Optional application configuration to pass as environment variables
 
     Returns:
       Timer ID that can be used to cancel the timer
@@ -78,7 +79,9 @@ class TimerManager(ABC):
     raise NotImplementedError
 
   @abstractmethod
-  def schedule_daily(self, command: str, args: list[str], run_time: time) -> None:
+  def schedule_daily(
+    self, command: str, args: list[str], run_time: time, appconfig: Any = None
+  ) -> None:
     """Schedule a daily recurring timer to run a command.
 
     This method is idempotent - safe to call multiple times.
@@ -87,6 +90,7 @@ class TimerManager(ABC):
       command: Path to executable or command to run
       args: List of command arguments
       run_time: Time of day to run the command daily
+      appconfig: Optional application configuration to pass as environment variables
     """
     raise NotImplementedError
 
