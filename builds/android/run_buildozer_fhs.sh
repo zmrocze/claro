@@ -64,7 +64,10 @@ if [[ -z "$target_api" ]]; then
   target_api="34"
 fi
 
-bt_lib64="$HOME/.buildozer/android/platform/android-sdk/build-tools/36.1.0/lib64"
+# Auto-detect the latest installed build-tools version instead of hardcoding.
+bt_dir="$HOME/.buildozer/android/platform/android-sdk/build-tools"
+bt_version=$(ls -1 "$bt_dir" 2>/dev/null | sort -V | tail -n1)
+bt_lib64="${bt_dir}/${bt_version}/lib64"
 libffi_lib=""
 for p in /nix/store/*-libffi-*/lib; do
   if ls "$p"/libffi.so* >/dev/null 2>&1; then

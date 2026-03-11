@@ -90,10 +90,12 @@
           # This mirrors Buildozer's own failure mode and helps diagnose quickly.
           android-check-aidl.exec = ''
             set -euo pipefail
-            AIDL_PATH="$HOME/.buildozer/android/platform/android-sdk/build-tools/36.1.0/aidl"
-            BT_LIB64="$HOME/.buildozer/android/platform/android-sdk/build-tools/36.1.0/lib64"
-            if [ ! -e "$AIDL_PATH" ]; then
-              echo "aidl not found at: $AIDL_PATH"
+            BT_DIR="$HOME/.buildozer/android/platform/android-sdk/build-tools"
+            BT_VER=$(ls -1 "$BT_DIR" 2>/dev/null | sort -V | tail -n1)
+            AIDL_PATH="$BT_DIR/$BT_VER/aidl"
+            BT_LIB64="$BT_DIR/$BT_VER/lib64"
+            if [ -z "$BT_VER" ] || [ ! -e "$AIDL_PATH" ]; then
+              echo "aidl not found (no build-tools installed yet)"
               echo "(Run a build once so Buildozer downloads the SDK.)"
               exit 0
             fi
