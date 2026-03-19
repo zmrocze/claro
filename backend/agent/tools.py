@@ -22,7 +22,9 @@ def create_zep_tools(zep_client: AsyncZep, user_id: str):
     List of tools
   """
 
-  @tool
+  @tool(
+    description="Search for facts in all conversations had with a user. Use this when you need to recall specific information about the user's preferences, habits, history, or past conversations."
+  )
   async def search_facts(query: str, limit: int = 5) -> list[str]:
     """
     Search for facts in all conversations had with a user.
@@ -48,7 +50,9 @@ def create_zep_tools(zep_client: AsyncZep, user_id: str):
       logger.error(f"Error searching facts: {e}")
       return [f"Error searching facts: {str(e)}"]
 
-  @tool
+  @tool(
+    description="Search for entities/nodes in all conversations had with a user. Use this to find information about people, places, things, or concepts mentioned in past conversations."
+  )
   async def search_nodes(query: str, limit: int = 5) -> list[str]:
     """
     Search for entities/nodes in all conversations had with a user.
@@ -77,7 +81,9 @@ def create_zep_tools(zep_client: AsyncZep, user_id: str):
   return [search_facts, search_nodes]
 
 
-@tool
+@tool(
+  description="A mock action tool for demonstration purposes. In production, this would be replaced with real actions."
+)
 async def mock_action(description: str, parameters: dict) -> str:
   """
   A mock action tool for demonstration purposes.
