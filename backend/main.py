@@ -22,8 +22,11 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
 from backend.config import AppConfig
-from os_interfaces.base import OSImplementations
-from os_interfaces.linux import LinuxTimerManager
+from os_interfaces.base import (
+  OSImplementations,
+  get_os_implementations,
+  set_os_implementations,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -61,12 +64,8 @@ def create_app(*, os_impl: OSImplementations | None = None) -> FastAPI:
   timer/notification implementations.
   """
 
-  if os_impl is None:
-    # Default to Linux for local development / existing behavior.
-    os_impl = OSImplementations(
-      notification_manager_cls=lambda *a, **k: None,  # type: ignore[arg-type]
-      timer_manager_cls=LinuxTimerManager,
-    )
+  os_impl = os_impl or get_os_implementations()
+  set_os_implementations(os_impl)
 
   @asynccontextmanager
   async def lifespan(app: FastAPI):
@@ -147,9 +146,11 @@ def create_app(*, os_impl: OSImplementations | None = None) -> FastAPI:
 
 
 # Backwards-compatible default import path (existing code imports `app`)
-app = create_app(
-  os_impl=OSImplementations(
-    notification_manager_cls=lambda *a, **k: None,  # type: ignore[arg-type]
-    timer_manager_cls=LinuxTimerManager,
-  )
-)
+_default_app: FastAPI | None = None
+
+
+async def app(scope, receive, send):
+  global _default_app
+  if _default_app is None:
+    _default_app = create_app()
+  await _default_app(scope, receive, send)

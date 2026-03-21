@@ -12,7 +12,11 @@ from urllib.parse import urlparse
 
 from entrypoints.claro_app_core import run_pywebview_app
 from os_interfaces.base import OSImplementations
-from os_interfaces.linux import LinuxNotificationManager, LinuxTimerManager
+from os_interfaces.linux import (
+  LinuxManageKeys,
+  LinuxNotificationManager,
+  LinuxTimerManager,
+)
 
 # Desktop build substitutes this path via Nix; in dev it may be overridden.
 FRONTEND_PATH = Path("@FRONTEND_PATH@")
@@ -44,6 +48,7 @@ def main() -> None:
   os_impl = OSImplementations(
     notification_manager_cls=LinuxNotificationManager,
     timer_manager_cls=LinuxTimerManager,
+    manage_keys_cls=LinuxManageKeys,
   )
   run_pywebview_app(frontend_path=FRONTEND_PATH, os_impl=os_impl, session_id=session_id)
 

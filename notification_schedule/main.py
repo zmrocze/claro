@@ -20,9 +20,13 @@ from notification_schedule.config_parser import (
   parse_notification_config,
 )
 from backend.config import AppConfig
-from os_interfaces.base import ScheduleTimeRange, TimerConfig
-from os_interfaces.base import OSImplementations
-from os_interfaces.linux import LinuxTimerManager
+from os_interfaces.base import (
+  OSImplementations,
+  ScheduleTimeRange,
+  TimerConfig,
+  get_os_implementations,
+  set_os_implementations,
+)
 
 logging.basicConfig(
   level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -120,10 +124,8 @@ def main(os_impl: OSImplementations | None = None) -> None:
   args = parser.parse_args()
 
   if os_impl is None:
-    os_impl = OSImplementations(
-      notification_manager_cls=lambda *a, **k: None,  # type: ignore[arg-type]
-      timer_manager_cls=LinuxTimerManager,
-    )
+    os_impl = get_os_implementations()
+  set_os_implementations(os_impl)
 
   # Determine config path
   config_path = args.config or (

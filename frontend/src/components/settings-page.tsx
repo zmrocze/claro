@@ -87,22 +87,22 @@ export function SettingsPage() {
           <h3 className="text-lg font-semibold text-slate-800">
             Configuration
           </h3>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="text-sm text-slate-600">
             {isLoadingConfig && "Loading configuration..."}
             {!isLoadingConfig && config?.config_path}
           </p>
           {config?.keyring_service && (
             <p className="mt-1 text-xs text-slate-500">
-              Keyring service: {config.keyring_service}
+              Secure storage service: {config.keyring_service}
             </p>
           )}
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-800">API Keys</h3>
           <p className="mt-2 text-sm text-slate-600">
-            Use a secure system prompt to enter keys; they are saved directly to
-            your keyring.
+            Use a secure system prompt to enter keys; they are saved securely on
+            this device.
           </p>
 
           <div className="mt-4 flex flex-col gap-3">

@@ -8,20 +8,27 @@ import random
 import subprocess
 import threading
 from datetime import datetime, time
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
+from android.runnable import run_on_ui_thread  # type: ignore
 from jnius import PythonJavaClass, autoclass, java_method  # type: ignore
 
-from .base import NotificationManager, ScheduleTimeRange, TimerConfig, TimerManager
+from .base import (
+  ManageKeys,
+  NotificationManager,
+  ScheduleTimeRange,
+  TimerConfig,
+  TimerManager,
+)
 
 logger = logging.getLogger(__name__)
-
 
 # --- PyJNIus handles ---
 PythonActivity = autoclass("org.kivy.android.PythonActivity")
 Intent = autoclass("android.content.Intent")
 IntentFilter = autoclass("android.content.IntentFilter")
 PendingIntent = autoclass("android.app.PendingIntent")
+AlertDialogBuilder = autoclass("android.app.AlertDialog$Builder")
 NotificationManagerJava = autoclass("android.app.NotificationManager")
 NotificationChannel = autoclass("android.app.NotificationChannel")
 BuildVersion = autoclass("android.os.Build$VERSION")
@@ -31,6 +38,11 @@ AlarmManagerJava = autoclass("android.app.AlarmManager")
 Calendar = autoclass("java.util.Calendar")
 AndroidRDrawable = autoclass("android.R$drawable")
 Context = autoclass("android.content.Context")
+EditText = autoclass("android.widget.EditText")
+InputType = autoclass("android.text.InputType")
+PasswordTransformationMethod = autoclass(
+  "android.text.method.PasswordTransformationMethod"
+)
 
 ACTION_CLICK = "com.claro.NOTIFICATION_CLICKED"
 ACTION_DISMISS = "com.claro.NOTIFICATION_DISMISSED"
@@ -127,10 +139,139 @@ def _pick_datetime(timing: datetime | ScheduleTimeRange) -> datetime:
   return timing
 
 
+def _encrypted_prefs(ctx, service_name: str):
+  MasterKeyBuilder = autoclass("androidx.security.crypto.MasterKey$Builder")
+  MasterKeyKeyScheme = autoclass("androidx.security.crypto.MasterKey$KeyScheme")
+  EncryptedSharedPreferences = autoclass(
+    "androidx.security.crypto.EncryptedSharedPreferences"
+  )
+  PrefKeyEncryptionScheme = autoclass(
+    "androidx.security.crypto.EncryptedSharedPreferences$PrefKeyEncryptionScheme"
+  )
+  PrefValueEncryptionScheme = autoclass(
+    "androidx.security.crypto.EncryptedSharedPreferences$PrefValueEncryptionScheme"
+  )
+  master_key = MasterKeyBuilder(ctx).setKeyScheme(MasterKeyKeyScheme.AES256_GCM).build()
+  return EncryptedSharedPreferences.create(
+    ctx,
+    service_name,
+    master_key,
+    PrefKeyEncryptionScheme.AES256_SIV,
+    PrefValueEncryptionScheme.AES256_GCM,
+  )
+
+
+class _DialogClickListener(PythonJavaClass):
+  __javainterfaces__ = ["android/content/DialogInterface$OnClickListener"]
+  __javacontext__ = "app"
+
+  def __init__(self, callback: Callable):
+    super().__init__()
+    self.callback = callback
+
+  @java_method("(Landroid/content/DialogInterface;I)V")
+  def onClick(self, dialog, which):
+    self.callback(dialog, which)
+
+
+class _DialogCancelListener(PythonJavaClass):
+  __javainterfaces__ = ["android/content/DialogInterface$OnCancelListener"]
+  __javacontext__ = "app"
+
+  def __init__(self, callback: Callable[[], None]):
+    super().__init__()
+    self.callback = callback
+
+  @java_method("(Landroid/content/DialogInterface;)V")
+  def onCancel(self, _dialog):
+    self.callback()
+
+
+class AndroidManageKeys(ManageKeys):
+  def __init__(self, service_name: str):
+    self.ctx = _context()
+    self.activity = PythonActivity.mActivity
+    self.service_name = service_name
+
+  def _prefs(self):
+    return _encrypted_prefs(self.ctx, self.service_name)
+
+  def get_key(self, key_name: str) -> Optional[str]:
+    try:
+      value = self._prefs().getString(key_name, None)
+      return value if value else None
+    except Exception as e:
+      logger.warning(
+        "Failed to retrieve '%s' from Android secure storage: %s", key_name, e
+      )
+      return None
+
+  def set_key(self, key_name: str, value: str) -> None:
+    try:
+      editor = self._prefs().edit()
+      editor.putString(key_name, value)
+      if not editor.commit():
+        raise RuntimeError(f"Failed to store '{key_name}' in Android secure storage")
+      logger.info("API key '%s' stored successfully", key_name)
+    except Exception as e:
+      logger.error("Failed to store API key '%s': %s", key_name, e)
+      raise
+
+  def prompt_for_key(
+    self,
+    key_name: str,
+    *,
+    description: Optional[str] = None,
+    prompt_label: Optional[str] = None,
+  ) -> Optional[str]:
+    done = threading.Event()
+    result: dict[str, Optional[str]] = {"value": None}
+    refs: dict[str, Any] = {}
+
+    def finish(value: Optional[str]) -> None:
+      result["value"] = value.strip() if value else None
+      done.set()
+
+    @run_on_ui_thread
+    def show_prompt() -> None:
+      try:
+        input_field = EditText(self.activity)
+        input_field.setInputType(
+          InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
+        )
+        input_field.setTransformationMethod(PasswordTransformationMethod.getInstance())
+        input_field.setSingleLine(True)
+        input_field.setHint(prompt_label or key_name)
+        builder = AlertDialogBuilder(self.activity)
+        builder.setTitle(prompt_label or key_name)
+        if description:
+          builder.setMessage(description)
+        builder.setView(input_field)
+        refs["positive"] = _DialogClickListener(
+          lambda _dialog, _which: finish(str(input_field.getText().toString()))
+        )
+        refs["negative"] = _DialogClickListener(lambda _dialog, _which: finish(None))
+        refs["cancel"] = _DialogCancelListener(lambda: finish(None))
+        dialog = (
+          builder.setPositiveButton("Save", refs["positive"])
+          .setNegativeButton("Cancel", refs["negative"])
+          .create()
+        )
+        dialog.setOnCancelListener(refs["cancel"])
+        dialog.show()
+      except Exception:
+        logger.exception("Failed to show Android key prompt")
+        done.set()
+
+    show_prompt()
+    done.wait()
+    return result["value"]
+
+
 class AndroidNotificationManager(NotificationManager):
   """Android notification manager using PyJNIus NotificationCompat."""
 
-  def __init__(self):
+  def __init__(self, app_name: str | None = None):
     self.ctx = _context()
     self.manager = self.ctx.getSystemService(Context.NOTIFICATION_SERVICE)
     _ensure_channel(self.ctx, self.manager)
@@ -184,12 +325,12 @@ class AndroidNotificationManager(NotificationManager):
 class AndroidTimerManager(TimerManager):
   """Android timer manager using AlarmManager setExact/setRepeating."""
 
-  def __init__(self):
+  def __init__(self, app_name: str | None = None):
     self.ctx = _context()
     self.alarm_manager = self.ctx.getSystemService(Context.ALARM_SERVICE)
     _ensure_alarm_receiver(self.ctx)
 
-  def schedule_timer(self, timer_config: TimerConfig) -> str:
+  def schedule_timer(self, timer_config: TimerConfig, appconfig: Any = None) -> str:
     target = _pick_datetime(timer_config.timing)
     trigger_at = max(_millis(target), _millis(datetime.now()) + 1000)
 
@@ -216,7 +357,9 @@ class AndroidTimerManager(TimerManager):
     logger.info("Scheduled alarm %s at %s", timer_id, target.isoformat())
     return timer_id
 
-  def schedule_daily(self, command: str, args: list[str], run_time: time) -> None:
+  def schedule_daily(
+    self, command: str, args: list[str], run_time: time, appconfig: Any = None
+  ) -> None:
     now_ms = _millis(datetime.now())
     cal = Calendar.getInstance()
     cal.set(Calendar.HOUR_OF_DAY, run_time.hour)

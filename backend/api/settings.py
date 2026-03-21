@@ -65,9 +65,7 @@ async def set_api_key_via_prompt(request: ApiKeyRequest) -> ApiKeyResponse:
   """Prompt the user for an API key via pynentry and save it to keyring."""
   try:
     key_name = GROK_API_KEY if request.provider == "grok" else ZEP_API_KEY
-    description = (
-      f"Enter your {request.provider.title()} API key to store it securely in keyring."
-    )
+    description = f"Enter your {request.provider.title()} API key to store it securely on this device."
 
     value = prompt_and_store_api_key(
       key_name,
@@ -83,7 +81,7 @@ async def set_api_key_via_prompt(request: ApiKeyRequest) -> ApiKeyResponse:
       )
 
     return ApiKeyResponse(
-      saved=True, message=f"{request.provider.title()} API key saved to keyring"
+      saved=True, message=f"{request.provider.title()} API key saved securely"
     )
 
   except AppError as e:

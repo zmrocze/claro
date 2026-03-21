@@ -19,8 +19,11 @@ from platformdirs import user_config_dir
 from backend.agent.agent import new_agent
 from backend.sessions import get_session_manager
 from notification_schedule import parse_notification_config
-from os_interfaces.base import OSImplementations
-from os_interfaces.linux import LinuxNotificationManager
+from os_interfaces.base import (
+  OSImplementations,
+  get_os_implementations,
+  set_os_implementations,
+)
 
 logging.basicConfig(
   level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -118,10 +121,8 @@ async def main(os_impl: OSImplementations | None = None) -> None:
   args = parser.parse_args()
 
   if os_impl is None:
-    os_impl = OSImplementations(
-      notification_manager_cls=LinuxNotificationManager,
-      timer_manager_cls=lambda *a, **k: None,  # type: ignore[arg-type]
-    )
+    os_impl = get_os_implementations()
+  set_os_implementations(os_impl)
 
   # Locate config file
   config_path = (

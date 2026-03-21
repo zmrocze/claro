@@ -1,6 +1,8 @@
 """Linux-specific implementations of OS interfaces"""
 
+import keyring
 import logging
+import pynentry
 from contextlib import contextmanager
 from datetime import time
 from pathlib import Path
@@ -12,6 +14,7 @@ from pystemd.dbuslib import DBus
 from pystemd.systemd1 import Manager
 
 from .base import (
+  ManageKeys,
   NotificationManager,
   ScheduleTimeRange,
   TimerConfig,
@@ -19,6 +22,50 @@ from .base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class LinuxManageKeys(ManageKeys):
+  def __init__(self, service_name: str):
+    self.service_name = service_name
+
+  def get_key(self, key_name: str) -> Optional[str]:
+    try:
+      value = keyring.get_password(self.service_name, key_name)
+      if value:
+        logger.debug(f"API key '{key_name}' retrieved from keyring")
+      return value
+    except Exception as e:
+      logger.warning(f"Failed to retrieve '{key_name}' from keyring: {e}")
+      return None
+
+  def set_key(self, key_name: str, value: str) -> None:
+    try:
+      keyring.set_password(self.service_name, key_name, value)
+      logger.info(f"API key '{key_name}' stored successfully")
+    except Exception as e:
+      logger.error(f"Failed to store API key '{key_name}': {e}")
+      raise
+
+  def prompt_for_key(
+    self,
+    key_name: str,
+    *,
+    description: Optional[str] = None,
+    prompt_label: Optional[str] = None,
+  ) -> Optional[str]:
+    description_text = description or (
+      f"Enter the value for '{key_name}' so we can store it securely on this device."
+    )
+    prompt_text = prompt_label or f"{key_name}:"
+
+    try:
+      return pynentry.get_pin(description=description_text, prompt=prompt_text) or None
+    except pynentry.PinEntryCancelled:
+      logger.warning(f"User cancelled pynentry prompt for '{key_name}'")
+    except Exception as e:
+      logger.warning(f"Failed to prompt for '{key_name}' using pynentry: {e}")
+
+    return None
 
 
 class LinuxNotificationManager(NotificationManager):

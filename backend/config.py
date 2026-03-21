@@ -6,14 +6,15 @@ Handles secure API key storage and retrieval
 import os
 import logging
 from typing import Optional
-import keyring
 from dotenv import load_dotenv
-import pynentry
+from os_interfaces.base import get_os_implementations
 
 logger = logging.getLogger(__name__)
 
-# Load environment variables from .env file
-load_dotenv(os.getenv("CLARO_DOTENV_PATH"))
+# Load environment variables from .env file if path is specified
+dotenv_path = os.getenv("CLARO_DOTENV_PATH")
+if dotenv_path:
+  load_dotenv(dotenv_path)
 
 # Configuration constants
 KEYRING_SERVICE = "claro-app"
@@ -24,20 +25,19 @@ ZEP_API_KEY = "zep_api_key"
 ZEP_API_URL = os.getenv("ZEP_API_URL") or None
 
 
+def _manage_keys():
+  return get_os_implementations().manage_keys(service_name=KEYRING_SERVICE)
+
+
 def set_api_key(key_name: str, value: str) -> None:
   """
   Store an API key securely in the system keyring
 
   Args:
-    key_name: Name of the key (e.g., 'grok_api_key')
-    value: The API key value
+      key_name: Name of the key (e.g., 'grok_api_key')
+      value: The API key value
   """
-  try:
-    keyring.set_password(KEYRING_SERVICE, key_name, value)
-    logger.info(f"API key '{key_name}' stored successfully")
-  except Exception as e:
-    logger.error(f"Failed to store API key '{key_name}': {e}")
-    raise
+  _manage_keys().set_key(key_name, value)
 
 
 def prompt_and_store_api_key(
@@ -47,20 +47,19 @@ def prompt_and_store_api_key(
   prompt_label: Optional[str] = None,
 ) -> Optional[str]:
   description_text = description or (
-    f"Enter the value for '{key_name}' so we can store it securely in your keyring."
+    f"Enter the value for '{key_name}' so we can store it securely on this device."
   )
   prompt_text = prompt_label or f"{key_name}:"
 
-  try:
-    value = pynentry.get_pin(description=description_text, prompt=prompt_text)
-    if value:
-      set_api_key(key_name, value)
-      logger.info(f"API key '{key_name}' entered via pynentry and saved to keyring")
-      return value
-  except pynentry.PinEntryCancelled:
-    logger.warning(f"User cancelled pynentry prompt for '{key_name}'")
-  except Exception as e:
-    logger.warning(f"Failed to prompt for '{key_name}' using pynentry: {e}")
+  value = _manage_keys().prompt_for_key(
+    key_name,
+    description=description_text,
+    prompt_label=prompt_text,
+  )
+  if value:
+    set_api_key(key_name, value)
+    logger.info(f"API key '{key_name}' entered by user and saved to secure storage")
+    return value
 
   return None
 
@@ -70,20 +69,16 @@ def get_api_key(key_name: str, env_fallback: Optional[str] = None) -> Optional[s
   Retrieve an API key from keyring with optional environment variable fallback
 
   Args:
-    key_name: Name of the key to retrieve
-    env_fallback: Optional environment variable name to check if keyring fails
+      key_name: Name of the key to retrieve
+      env_fallback: Optional environment variable name to check if keyring fails
 
   Returns:
-    The API key value or None if not found
+      The API key value or None if not found
   """
   # Try keyring first
-  try:
-    value = keyring.get_password(KEYRING_SERVICE, key_name)
-    if value:
-      logger.debug(f"API key '{key_name}' retrieved from keyring")
-      return value
-  except Exception as e:
-    logger.warning(f"Failed to retrieve '{key_name}' from keyring: {e}")
+  value = _manage_keys().get_key(key_name)
+  if value:
+    return value
 
   # Fall back to environment variable
   if env_fallback:
@@ -96,7 +91,7 @@ def get_api_key(key_name: str, env_fallback: Optional[str] = None) -> Optional[s
   value = prompt_and_store_api_key(
     key_name,
     description=(
-      f"API key '{key_name}' not found in keyring or environment.\nPlease enter it below:"
+      f"API key '{key_name}' not found in secure storage or environment.\nPlease enter it below:"
     ),
     prompt_label=f"{key_name}:",
   )
