@@ -5,9 +5,9 @@ package.domain = org.claro
 
 source.dir = ../..
 source.include_exts = py,js,jsx,ts,tsx,html,css,json,yaml,toml
-# source.exclude_dirs = .git,__pycache__,node_modules,dist,build,venv,.devenv
-source.exclude_patterns = setup.py, pyproject.toml
-source.include_patterns = entrypoints/**/*,backend/**/*,os_interfaces/**/*,remember/**/*,notification/**/*,notification_schedule/**/*
+source.exclude_dirs = .git,__pycache__,node_modules,build,venv,.devenv,.windsurf,.android,docs,documentations,notes,test,builds,claro.egg-info,python-for-android-moved-from-platform-slash-python-for-android,~,result,result-2,result2
+source.exclude_patterns = setup.py,pyproject.toml,uv.lock,package-lock.json,frontend/src/**/*,frontend/components.json,frontend/eslint.config.js,frontend/openapi-ts.config.ts,frontend/package-lock.json,frontend/package.json,frontend/postcss.config.js,frontend/tailwind.config.js,frontend/tsconfig*.json,frontend/vite.config.ts,init_zep.py
+source.include_patterns = main.py,claro_platform.py,__init__.py,entrypoints/**/*,backend/**/*,os_interfaces/**/*,remember/**/*,notification/**/*,notification_schedule/**/*,frontend/dist/**/*,builds/android/.env.android
 
 # IMPORTANT: buildozer expects a module in the source tree, not a repo-root script.
 # We provide a minimal Android entrypoint in builds/android/.
@@ -36,7 +36,7 @@ android.permissions = INTERNET,POST_NOTIFICATIONS,RECEIVE_BOOT_COMPLETED
 android.enable_androidx = True
 
 # Needed for NotificationCompat on Android 13+.
-android.gradle_dependencies = androidx.core:core:1.12.0
+android.gradle_dependencies = androidx.core:core:1.12.0,androidx.security:security-crypto:1.0.0
 
 [buildozer]
 log_level = 2

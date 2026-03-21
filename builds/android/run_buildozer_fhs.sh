@@ -66,7 +66,7 @@ fi
 
 # Auto-detect the latest installed build-tools version instead of hardcoding.
 bt_dir="$HOME/.buildozer/android/platform/android-sdk/build-tools"
-bt_version=$(ls -1 "$bt_dir" 2>/dev/null | sort -V | tail -n1)
+bt_version=$(find "$bt_dir" -maxdepth 1 -mindepth 1 -type d -printf '%f\n' 2>/dev/null | sort -V | tail -n1)
 bt_lib64="${bt_dir}/${bt_version}/lib64"
 libffi_lib=""
 for p in /nix/store/*-libffi-*/lib; do
@@ -181,6 +181,14 @@ env_parts=(
   "ANDROID_NDK_ROOT=$ndk_home"
   "BUILDOZER_SPECFILE=$spec_path"
 )
+
+gradle_opts="${GRADLE_OPTS:-}"
+for gradle_opt in "-Dorg.gradle.jvmargs=-Xmx4096m" "-Dorg.gradle.workers.max=2"; do
+  if [[ " ${gradle_opts} " != *" ${gradle_opt} "* ]]; then
+    gradle_opts="${gradle_opts:+$gradle_opts }$gradle_opt"
+  fi
+done
+
 if [ -n "${ACLOCAL_PATH:-}" ]; then
   env_parts+=("ACLOCAL_PATH=${ACLOCAL_PATH}")
 fi
@@ -200,6 +208,10 @@ if [ -n "$libffi_lib" ]; then
   env_parts+=("LIBFFI_LIBDIR=$libffi_lib")
   env_parts+=("LIBFFI_LIBS=-lffi")
 fi
+if [ -n "$gradle_opts" ]; then
+  env_parts+=("GRADLE_OPTS=$gradle_opts")
+fi
+
 ld_parts=()
 if [ -n "$libffi_lib" ]; then
   ld_parts+=("$libffi_lib")
@@ -214,6 +226,10 @@ if [ "${#ld_parts[@]}" -gt 0 ]; then
   IFS=":" env_parts+=("LD_LIBRARY_PATH=${ld_parts[*]}"); IFS=" "
 fi
 
-# spec_path_escaped=$(printf '%q' "$spec_path")
-cmd="env ${env_parts[*]} uv run buildozer -- ${escaped_args[*]}"
+escaped_env_parts=()
+for part in "${env_parts[@]}"; do
+  escaped_env_parts+=("$(printf '%q' "$part")")
+done
+
+cmd="env ${escaped_env_parts[*]} uv run buildozer -- ${escaped_args[*]}"
 exec "$BUILDOZER_FHS" -c "bash -lc $(printf '%q' "$cmd")"
