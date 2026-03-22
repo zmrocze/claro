@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import logging
+import os
 import random
-import subprocess
 import threading
 from datetime import datetime, time
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 from android.runnable import run_on_ui_thread  # type: ignore
@@ -46,12 +46,42 @@ PasswordTransformationMethod = autoclass(
 
 ACTION_CLICK = "com.claro.NOTIFICATION_CLICKED"
 ACTION_DISMISS = "com.claro.NOTIFICATION_DISMISSED"
-ACTION_ALARM_FIRE = "com.claro.ALARM_FIRED"
 CHANNEL_ID = "claro-general"
+
+SERVICE_SCHEDULER = "org.claro.claro.ServiceScheduler"
+SERVICE_NOTIFIER = "org.claro.claro.ServiceNotifier"
+ComponentName = autoclass("android.content.ComponentName")
 
 
 def _context():
-  return PythonActivity.mActivity.getApplicationContext()
+  activity = PythonActivity.mActivity
+  if activity is not None:
+    return activity.getApplicationContext()
+  return autoclass("org.kivy.android.PythonService").mService.getApplicationContext()
+
+
+def setup_android_env() -> None:
+  """Set CLARO_DOTENV_PATH for Android. Call before importing backend modules."""
+  try:
+    from android.storage import app_storage_path  # type: ignore
+
+    env_file = Path(app_storage_path()) / "app" / "builds" / "android" / ".env.android"
+  except Exception:
+    env_file = Path(
+      "/data/user/0/org.claro.claro/files/app/builds/android/.env.android"
+    )
+  if env_file.exists():
+    os.environ["CLARO_DOTENV_PATH"] = str(env_file)
+
+
+def _android_config_path() -> Path:
+  """Return the notification schedule config path on Android."""
+  try:
+    from android.storage import app_storage_path  # type: ignore
+
+    return Path(app_storage_path()) / "notification_schedule.yaml"
+  except Exception:
+    return Path("/data/user/0/org.claro.claro/files/notification_schedule.yaml")
 
 
 def _flags(base: int | None = None) -> int:
@@ -92,36 +122,14 @@ class _NotificationReceiver(PythonJavaClass):
       logger.exception("Notification callback failed")
 
 
-class _AlarmReceiver(PythonJavaClass):
-  __javainterfaces__ = ["android/content/BroadcastReceiver"]
-  __javacontext__ = "app"
-
-  @java_method("(Landroid/content/Context;Landroid/content/Intent;)V")
-  def onReceive(self, _context, intent):
-    cmd = intent.getStringExtra("command")
-    args_json = intent.getStringExtra("args")
-    args = json.loads(args_json) if args_json else []
-
-    def run():
-      try:
-        subprocess.Popen([cmd, *args])
-      except Exception:
-        logger.exception("Failed to run alarm command")
-
-    threading.Thread(target=run, daemon=True).start()
-
-
-_alarm_receiver: _AlarmReceiver | None = None
-
-
-def _ensure_alarm_receiver(ctx) -> _AlarmReceiver:
-  global _alarm_receiver
-  if _alarm_receiver is None:
-    _alarm_receiver = _AlarmReceiver()
-    intent_filter = IntentFilter()
-    intent_filter.addAction(ACTION_ALARM_FIRE)
-    ctx.registerReceiver(_alarm_receiver, intent_filter)
-  return _alarm_receiver
+def _service_intent(ctx, service_class: str, argument: str = "") -> Any:
+  """Create an Intent targeting a p4a foreground service."""
+  intent = Intent()
+  intent.setComponent(ComponentName(ctx.getPackageName(), service_class))
+  intent.putExtra("pythonServiceArgument", argument)
+  intent.putExtra("serviceTitle", "Claro")
+  intent.putExtra("serviceDescription", "Running scheduled task")
+  return intent
 
 
 def _rand_request_code() -> int:
@@ -323,38 +331,30 @@ class AndroidNotificationManager(NotificationManager):
 
 
 class AndroidTimerManager(TimerManager):
-  """Android timer manager using AlarmManager setExact/setRepeating."""
+  """Android timer manager using AlarmManager + p4a foreground services."""
 
   def __init__(self, app_name: str | None = None):
     self.ctx = _context()
     self.alarm_manager = self.ctx.getSystemService(Context.ALARM_SERVICE)
-    _ensure_alarm_receiver(self.ctx)
+
+  def _schedule_alarm(self, intent: Any, request_code: int, trigger_ms: int) -> None:
+    pi = PendingIntent.getForegroundService(self.ctx, request_code, intent, _flags())
+    if BuildVersion.SDK_INT >= 23:
+      self.alarm_manager.setExactAndAllowWhileIdle(
+        AlarmManagerJava.RTC_WAKEUP, trigger_ms, pi
+      )
+    else:
+      self.alarm_manager.setExact(AlarmManagerJava.RTC_WAKEUP, trigger_ms, pi)
 
   def schedule_timer(self, timer_config: TimerConfig, appconfig: Any = None) -> str:
     target = _pick_datetime(timer_config.timing)
     trigger_at = max(_millis(target), _millis(datetime.now()) + 1000)
-
-    intent = Intent(self.ctx, PythonActivity)
-    intent.setAction(ACTION_ALARM_FIRE)
-    intent.putExtra("command", timer_config.command)
-    intent.putExtra("args", json.dumps(timer_config.args))
-
+    notification_name = timer_config.args[0] if timer_config.args else ""
+    intent = _service_intent(self.ctx, SERVICE_NOTIFIER, notification_name)
     request_code = _rand_request_code()
-    pending_intent = PendingIntent.getBroadcast(
-      self.ctx, request_code, intent, _flags()
-    )
-
-    if BuildVersion.SDK_INT >= 23:
-      self.alarm_manager.setExactAndAllowWhileIdle(
-        AlarmManagerJava.RTC_WAKEUP, trigger_at, pending_intent
-      )
-    else:
-      self.alarm_manager.setExact(
-        AlarmManagerJava.RTC_WAKEUP, trigger_at, pending_intent
-      )
-
+    self._schedule_alarm(intent, request_code, trigger_at)
     timer_id = f"alarm-{request_code}"
-    logger.info("Scheduled alarm %s at %s", timer_id, target.isoformat())
+    logger.info("Scheduled notifier service %s at %s", timer_id, target.isoformat())
     return timer_id
 
   def schedule_daily(
@@ -366,29 +366,22 @@ class AndroidTimerManager(TimerManager):
     cal.set(Calendar.MINUTE, run_time.minute)
     cal.set(Calendar.SECOND, 0)
     cal.set(Calendar.MILLISECOND, 0)
-
     first_fire = cal.getTimeInMillis()
     if first_fire <= now_ms:
       cal.add(Calendar.DATE, 1)
       first_fire = cal.getTimeInMillis()
 
-    intent = Intent(self.ctx, PythonActivity)
-    intent.setAction(ACTION_ALARM_FIRE)
-    intent.putExtra("command", command)
-    intent.putExtra("args", json.dumps(args))
-
-    pending_intent = PendingIntent.getBroadcast(self.ctx, 42_000, intent, _flags())
-
+    intent = _service_intent(self.ctx, SERVICE_SCHEDULER)
+    pi = PendingIntent.getForegroundService(self.ctx, 42_000, intent, _flags())
     self.alarm_manager.setRepeating(
       AlarmManagerJava.RTC_WAKEUP,
       first_fire,
       AlarmManagerJava.INTERVAL_DAY,
-      pending_intent,
+      pi,
     )
-    logger.info("Scheduled daily alarm for %s", run_time.isoformat())
+    logger.info("Scheduled daily scheduler service for %s", run_time.isoformat())
 
   def cancel_timer(self, timer_id: str) -> None:
-    # Timer cancellation intentionally omitted (fire-and-forget pattern).
     raise NotImplementedError(
       "Android timer cancellation not implemented; timers are fire-and-forget."
     )
