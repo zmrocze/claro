@@ -1,0 +1,10 @@
+--- a/webview/platforms/android/jclass/webkit.py
++++ b/webview/platforms/android/jclass/webkit.py
+@@ -145,7 +145,7 @@
+     getInstance = JavaStaticMethod('()Landroid/webkit/CookieManager;')
+     setAcceptCookie = JavaMethod('(Z)V')
+-    acceptCookie = JavaMethod('(Z)V')
++    acceptCookie = JavaMethod('()Z')
+     setAcceptThirdPartyCookies = JavaMethod('(Landroid/webkit/WebView;Z)V')
+     acceptThirdPartyCookies = JavaMethod('(Landroid/webkit/WebView;)Z')
+     setCookie = JavaMultipleMethod([
