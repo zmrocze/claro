@@ -53,7 +53,7 @@ async def main(os_impl: OSImplementations | None = None) -> None:
   done_event = asyncio.Event()
 
   session_id = await fire_notification(
-    notification_name=args.notification_name,
+    notification_name=getattr(args, "notification-name"),
     config_path=config_path,
     os_impl=os_impl,
     on_clicked=lambda: (_open_app_on_click(session_id), done_event.set()),
