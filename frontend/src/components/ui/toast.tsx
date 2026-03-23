@@ -20,17 +20,16 @@ export function Toast({ id, message, fullMessage, onClose }: ToastProps) {
     <div
       className={cn(
         "mb-2 flex cursor-pointer flex-col rounded-lg bg-red-500 shadow-lg transition-all hover:bg-red-600",
-        isExpanded ? "w-[34rem]" : "w-[29rem]",
+        "w-[calc(100vw-2rem)] md:w-[29rem]",
+        isExpanded && "md:w-[34rem]",
       )}
       style={{
         pointerEvents: "auto",
         marginBottom: "0.5rem",
-        // Add explicit inline styles to ensure visibility
         backgroundColor: "#ef4444",
         color: "white",
-        padding: "1.2rem",
+        padding: "1rem",
         borderRadius: "0.5rem",
-        width: isExpanded ? "34rem" : "29rem",
         boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
         cursor: "pointer",
         display: "flex",
@@ -109,11 +108,10 @@ interface ToastContainerProps {
 export function ToastContainer({ toasts, onClose }: ToastContainerProps) {
   return (
     <div
-      className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col"
+      className="pointer-events-none fixed bottom-4 left-2 right-2 z-50 flex flex-col items-center md:items-end md:left-auto md:right-4"
       style={{
         position: "fixed",
         bottom: "1rem",
-        right: "1rem",
         zIndex: 9999,
         pointerEvents: "none",
       }}

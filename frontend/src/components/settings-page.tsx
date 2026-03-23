@@ -72,10 +72,12 @@ export function SettingsPage() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 px-3 py-2 md:gap-6 md:px-0 md:py-0">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-800">Settings</h2>
+          <h2 className="text-xl font-semibold text-slate-800 md:text-2xl">
+            Settings
+          </h2>
           <p className="text-sm text-slate-600">
             Manage configuration and securely store your API keys.
           </p>
@@ -83,11 +85,11 @@ export function SettingsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:p-6">
           <h3 className="text-lg font-semibold text-slate-800">
             Configuration
           </h3>
-          <p className="text-sm text-slate-600">
+          <p className="break-all text-sm text-slate-600">
             {isLoadingConfig && "Loading configuration..."}
             {!isLoadingConfig && config?.config_path}
           </p>
@@ -98,7 +100,7 @@ export function SettingsPage() {
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm md:p-6">
           <h3 className="text-lg font-semibold text-slate-800">API Keys</h3>
           <p className="mt-2 text-sm text-slate-600">
             Use a secure system prompt to enter keys; they are saved securely on

@@ -62,23 +62,25 @@ function App() {
 
   return (
     <ErrorContext.Provider value={{ showError }}>
-      <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="flex min-h-screen flex-col bg-white md:bg-gradient-to-br md:from-slate-50 md:to-slate-100">
         {/* Header */}
         <header className="border-b border-slate-200 bg-white shadow-sm">
-          <div className="container mx-auto flex items-center justify-between px-4 py-4">
+          <div className="mx-auto flex items-center justify-between px-3 py-3 md:container md:px-4 md:py-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Claro</h1>
-              <p className="text-sm text-slate-600">
+              <h1 className="text-xl font-bold text-slate-800 md:text-2xl">
+                Claro
+              </h1>
+              <p className="hidden text-sm text-slate-600 md:block">
                 Your personal AI companion
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               {activePage === "settings"
                 ? (
                   <button
                     type="button"
                     onClick={() => setActivePage("chat")}
-                    className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 md:px-4 md:py-2"
                   >
                     Back to Chat
                   </button>
@@ -87,7 +89,7 @@ function App() {
                   <button
                     type="button"
                     onClick={() => setActivePage("settings")}
-                    className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+                    className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 md:px-4 md:py-2"
                   >
                     Settings
                   </button>
@@ -97,17 +99,17 @@ function App() {
         </header>
 
         {/* Main Content */}
-        <main className="container mx-auto flex flex-1 flex-col p-4">
-          <div className="flex flex-1 flex-col rounded-lg bg-white shadow-lg">
-            <div className="flex-1 p-6">
+        <main className="flex flex-1 flex-col md:container md:mx-auto md:p-4">
+          <div className="flex flex-1 flex-col md:rounded-lg md:bg-white md:shadow-lg">
+            <div className="flex-1 px-0 py-0 md:p-6">
               {activePage === "chat" ? <ChatSection /> : <SettingsPage />}
             </div>
           </div>
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-slate-200 bg-white py-3">
-          <div className="container mx-auto px-4 text-center text-xs text-slate-500">
+        <footer className="border-t border-slate-200 bg-white py-2 md:py-3">
+          <div className="mx-auto px-3 text-center text-xs text-slate-500 md:container md:px-4">
             AI Assistant v0.1.0 - Local AI Assistant
           </div>
         </footer>

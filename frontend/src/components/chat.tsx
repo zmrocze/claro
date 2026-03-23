@@ -134,9 +134,9 @@ export function ChatSection() {
   };
 
   return (
-    <div className="flex h-full max-h-[85vh] flex-col gap-6">
+    <div className="flex h-full max-h-[90vh] flex-col gap-3 md:max-h-[85vh] md:gap-6">
       {isInitializing && (
-        <div className="rounded-lg border border-blue-300 bg-blue-50 p-4 text-blue-800">
+        <div className="rounded-lg border border-blue-300 bg-blue-50 p-3 text-blue-800 md:p-4">
           <p className="text-sm">Initializing chat session...</p>
         </div>
       )}
@@ -144,7 +144,10 @@ export function ChatSection() {
         className="flex flex-1 flex-col overflow-y-auto"
         ref={chatContainerRef}
       >
-        <ChatSectionUI handler={handler} />
+        <ChatSectionUI
+          handler={handler}
+          className="!p-1 !gap-2 md:!p-5 md:!gap-4"
+        />
       </div>
 
       {/* Action Confirmation Dialog */}
