@@ -141,7 +141,7 @@ export function ChatSection() {
         </div>
       )}
       <div
-        className="flex flex-1 flex-col overflow-y-auto"
+        className="flex flex-1 flex-col"
         ref={chatContainerRef}
       >
         <ChatSectionUI
