@@ -181,8 +181,6 @@ class CarloAgent:
         if context is None:
           context = ""
 
-        logger.info("CCCcontext: ", context)
-
         system_message = SystemMessage(content=system_content(context))
         messages = [system_message] + state["messages"]
 
