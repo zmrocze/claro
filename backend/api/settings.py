@@ -24,6 +24,8 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 class ConfigInfo(BaseModel):
   config_path: str
   keyring_service: str
+  config_content: str | None = None
+  config_exists: bool
 
 
 class ApiKeyRequest(BaseModel):
@@ -33,6 +35,16 @@ class ApiKeyRequest(BaseModel):
 class ApiKeyResponse(BaseModel):
   saved: bool
   message: str
+
+
+class ConfigContentRequest(BaseModel):
+  content: str
+
+
+class ConfigContentResponse(BaseModel):
+  success: bool
+  message: str
+  content: str | None = None
 
 
 def _config_path() -> Path:
@@ -47,7 +59,21 @@ async def get_config_info() -> ConfigInfo:
   """Return basic configuration details for the app."""
   try:
     path = _config_path()
-    return ConfigInfo(config_path=str(path), keyring_service=KEYRING_SERVICE)
+    config_exists = path.exists()
+    config_content = None
+
+    if config_exists:
+      try:
+        config_content = path.read_text()
+      except Exception as read_error:
+        logger.warning(f"Could not read config file: {read_error}")
+
+    return ConfigInfo(
+      config_path=str(path),
+      keyring_service=KEYRING_SERVICE,
+      config_content=config_content,
+      config_exists=config_exists,
+    )
   except AppError:
     raise
   except Exception as e:
@@ -57,6 +83,63 @@ async def get_config_info() -> ConfigInfo:
       name="SETTINGS_CONFIG_ERROR",
       source="backend",
       context="Failed to load settings configuration info",
+    )
+
+
+@router.post("/config/content", response_model=ConfigContentResponse)
+async def update_config_content(request: ConfigContentRequest) -> ConfigContentResponse:
+  """Update the notification schedule config file content."""
+  try:
+    path = _config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    path.write_text(request.content)
+    logger.info(f"Config file updated: {path}")
+
+    return ConfigContentResponse(
+      success=True,
+      message="Configuration file saved successfully",
+    )
+  except AppError:
+    raise
+  except Exception as e:
+    logger.error(f"Error saving config file: {e}")
+    raise AppError.from_exception(
+      e,
+      name="CONFIG_SAVE_ERROR",
+      source="backend",
+      context="Failed to save configuration file",
+    )
+
+
+@router.get("/config/content", response_model=ConfigContentResponse)
+async def get_config_content() -> ConfigContentResponse:
+  """Get the notification schedule config file content."""
+  try:
+    path = _config_path()
+    config_exists = path.exists()
+    config_content = None
+
+    if config_exists:
+      try:
+        config_content = path.read_text()
+      except Exception as read_error:
+        logger.warning(f"Could not read config file: {read_error}")
+
+    return ConfigContentResponse(
+      success=True,
+      message="Configuration file loaded successfully",
+      content=config_content,
+    )
+  except AppError:
+    raise
+  except Exception as e:
+    logger.error(f"Error loading config file: {e}")
+    raise AppError.from_exception(
+      e,
+      name="CONFIG_LOAD_ERROR",
+      source="backend",
+      context="Failed to load configuration file",
     )
 
 
