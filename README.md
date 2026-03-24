@@ -35,7 +35,8 @@ and expect a personalized message!
 
 ## Available on linux
 
-Currently available on linux. Build with nix with
+Currently available on linux. 
+Install with nix with
 `nix build github:zmrocze/claro`.
 
 Android version on the way!
