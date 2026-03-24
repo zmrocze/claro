@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time as time_module
 import random
 import threading
 from datetime import datetime, time
@@ -11,7 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from android.runnable import run_on_ui_thread  # type: ignore
-from jnius import PythonJavaClass, autoclass, java_method  # type: ignore
+from jnius import PythonJavaClass, autoclass, cast, java_method  # type: ignore
 
 from .base import (
   ManageKeys,
@@ -43,6 +44,7 @@ InputType = autoclass("android.text.InputType")
 PasswordTransformationMethod = autoclass(
   "android.text.method.PasswordTransformationMethod"
 )
+JavaString = autoclass("java.lang.String")
 
 ACTION_CLICK = "com.claro.NOTIFICATION_CLICKED"
 ACTION_DISMISS = "com.claro.NOTIFICATION_DISMISSED"
@@ -198,7 +200,6 @@ class _DialogCancelListener(PythonJavaClass):
 class AndroidManageKeys(ManageKeys):
   def __init__(self, service_name: str):
     self.ctx = _context()
-    self.activity = PythonActivity.mActivity
     self.service_name = service_name
 
   def _prefs(self):
@@ -232,6 +233,29 @@ class AndroidManageKeys(ManageKeys):
     description: Optional[str] = None,
     prompt_label: Optional[str] = None,
   ) -> Optional[str]:
+    max_retries = 3
+    retry_delay = 0.2
+    activity = None
+
+    for attempt in range(max_retries):
+      activity = PythonActivity.mActivity
+      if activity is not None:
+        logger.debug("Android activity available on attempt %d", attempt + 1)
+        break
+      logger.warning(
+        "Android activity not available yet (attempt %d/%d), waiting...",
+        attempt + 1,
+        max_retries,
+      )
+      time_module.sleep(retry_delay)
+
+    if activity is None:
+      logger.error(
+        "Cannot prompt for API key: Android activity is not available after %d attempts",
+        max_retries,
+      )
+      return None
+
     done = threading.Event()
     result: dict[str, Optional[str]] = {"value": None}
     refs: dict[str, Any] = {}
@@ -243,30 +267,44 @@ class AndroidManageKeys(ManageKeys):
     @run_on_ui_thread
     def show_prompt() -> None:
       try:
-        input_field = EditText(self.activity)
+        hint_text = JavaString(prompt_label or key_name)
+        title_text = JavaString(prompt_label or key_name)
+
+        input_field = EditText(activity)
         input_field.setInputType(
           InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
         )
         input_field.setTransformationMethod(PasswordTransformationMethod.getInstance())
         input_field.setSingleLine(True)
-        input_field.setHint(prompt_label or key_name)
-        builder = AlertDialogBuilder(self.activity)
-        builder.setTitle(prompt_label or key_name)
+        input_field.setHint(cast("java.lang.CharSequence", hint_text))
+
+        builder = AlertDialogBuilder(activity)
+        builder.setTitle(cast("java.lang.CharSequence", title_text))
         if description:
-          builder.setMessage(description)
+          desc_text = JavaString(description)
+          builder.setMessage(cast("java.lang.CharSequence", desc_text))
         builder.setView(input_field)
+
         refs["positive"] = _DialogClickListener(
-          lambda _dialog, _which: finish(str(input_field.getText().toString()))
+          lambda _dialog, _which: finish(str(input_field.getText()))
         )
         refs["negative"] = _DialogClickListener(lambda _dialog, _which: finish(None))
         refs["cancel"] = _DialogCancelListener(lambda: finish(None))
+
+        save_text = JavaString("Save")
+        cancel_text = JavaString("Cancel")
         dialog = (
-          builder.setPositiveButton("Save", refs["positive"])
-          .setNegativeButton("Cancel", refs["negative"])
+          builder.setPositiveButton(
+            cast("java.lang.CharSequence", save_text), refs["positive"]
+          )
+          .setNegativeButton(
+            cast("java.lang.CharSequence", cancel_text), refs["negative"]
+          )
           .create()
         )
         dialog.setOnCancelListener(refs["cancel"])
         dialog.show()
+        logger.info("Android API key prompt dialog shown successfully")
       except Exception:
         logger.exception("Failed to show Android key prompt")
         done.set()
